@@ -1,6 +1,29 @@
 # flutter_project
 
-Flutter-проект с поддержкой iOS, Android и macOS.
+Flutter-проект с поддержкой iOS, Android и macOS. Реализован флоу авторизации (приветствие, регистрация, вход, восстановление пароля) с бэкендом на **Firebase Authentication**.
+
+## Настройка Firebase
+
+1. Установите **Firebase CLI** (нужен для FlutterFire). Варианты:
+  - Через npm (нужен Node.js): `npm install -g firebase-tools`
+  - Через Homebrew: `brew install firebase-cli`
+2. Войдите в аккаунт Google: `firebase login`
+3. Установите FlutterFire CLI (один раз): `dart pub global activate flutterfire_cli`
+4. В корне проекта выполните настройку Firebase — одним из способов:
+  - В этом же терминале добавьте PATH и сразу запустите (достаточно один раз в сессии):
+  - Или вызовите по полному пути (PATH менять не нужно):
+    ```
+    $HOME/.pub-cache/bin/flutterfire configure
+    ```
+   Чтобы `flutterfire` работал в любом новом терминале, добавьте в `~/.zshrc` строку `export PATH="$PATH":"$HOME/.pub-cache/bin"` и перезапустите терминал. В диалоге выберите проект и платформы (iOS, Android, macOS) — будет создан файл `lib/firebase_options.dart`.
+5. В [Firebase Console](https://console.firebase.google.com) включите **Authentication → Sign-in method → Email/Password**.
+
+**Если при `flutterfire configure` появляется ошибка:**
+
+- `cannot load such file -- xcodeproj` — установите гем: `sudo gem install xcodeproj`, затем снова `flutterfire configure`.
+- `UnsupportedError not found in macOS` — в проекте уже лежит заглушка `lib/firebase_options.dart` с полной структурой (android, ios, macos). Запустите `flutterfire configure` ещё раз и согласитесь перезаписать файл — он подставит реальные ключи.
+
+После этого приложение можно запускать; без настройки откроется экран с инструкцией.
 
 ## Запуск
 
