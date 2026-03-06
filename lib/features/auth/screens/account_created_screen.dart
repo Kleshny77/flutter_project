@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../app_theme.dart';
 
 class AccountCreatedScreen extends StatefulWidget {
   const AccountCreatedScreen({super.key, required this.onGoToHome});
@@ -11,208 +10,163 @@ class AccountCreatedScreen extends StatefulWidget {
 }
 
 class _AccountCreatedScreenState extends State<AccountCreatedScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _entranceController;
-  late AnimationController _pulseController;
-  late Animation<double> _contentFade;
-  late Animation<double> _checkScale;
-  late Animation<double> _titleFade;
-  late Animation<double> _subtitleFade;
-  late Animation<double> _buttonFade;
-  late Animation<double> _pulseScale;
-  late Animation<double> _pulseOpacity;
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entranceController;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-
     _entranceController = AnimationController(
-      duration: const Duration(milliseconds: 800),
       vsync: this,
+      duration: const Duration(milliseconds: 550),
     );
-    _contentFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0, 0.4, curve: Curves.easeOut),
-      ),
+    _scale = Tween<double>(begin: 0.8, end: 1).animate(
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOutBack),
     );
-    _checkScale = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.15, 0.6, curve: Curves.elasticOut),
-      ),
+    _opacity = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOut,
     );
-    _titleFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.35, 0.7, curve: Curves.easeOut),
-      ),
-    );
-    _subtitleFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.45, 0.8, curve: Curves.easeOut),
-      ),
-    );
-    _buttonFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entranceController,
-        curve: const Interval(0.6, 1, curve: Curves.easeOut),
-      ),
-    );
-
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    )..repeat();
-    _pulseScale = Tween<double>(begin: 0.9, end: 1.4).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
-    _pulseOpacity = Tween<double>(begin: 0.5, end: 0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
-
     _entranceController.forward();
   }
 
   @override
   void dispose() {
     _entranceController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: AppTheme.welcomeGradient),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment(0.0, 1.08),
+          end: Alignment(0.0, -0.08),
+          colors: [
+            Color(0xFFFFFFFF),
+            Color(0xFFDEFFCE),
+            Color(0xFF6F95FC),
+            Color(0xFF0773F1),
+          ],
+          stops: [0.0, 0.02, 0.55, 0.99],
+        ),
+      ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           child: Column(
             children: [
+              const SizedBox(height: 72),
+              const Text(
+                'Аккаунт создан!',
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  decoration: TextDecoration.none,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Теперь вы можете перейти\nв свою аптечку.',
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withValues(alpha: 0.86),
+                ),
+                textAlign: TextAlign.center,
+              ),
               const Spacer(),
-              AnimatedBuilder(
-                animation: _entranceController,
-                builder: (context, _) {
-                  return FadeTransition(
-                    opacity: _titleFade,
-                    child: const Text(
-                      'Аккаунт создан!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-              AnimatedBuilder(
-                animation: _entranceController,
-                builder: (context, _) {
-                  return FadeTransition(
-                    opacity: _subtitleFade,
-                    child: const Text(
-                      'Теперь вы можете перейти в свою аптечку.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFFBFDBFE),
-                        decoration: TextDecoration.none,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 40),
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, _) {
-                        return Transform.scale(
-                          scale: _pulseScale.value,
-                          child: Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(_pulseOpacity.value),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, _) {
-                        return Transform.scale(
-                          scale: _pulseScale.value,
-                          child: Container(
-                            width: 170,
-                            height: 170,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(_pulseOpacity.value * 0.7),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    ScaleTransition(
-                      scale: _checkScale,
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: const BoxDecoration(
-                          color: Colors.white24,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          size: 80,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
+              FadeTransition(
+                opacity: _opacity,
+                child: ScaleTransition(
+                  scale: _scale,
+                  child: const _SuccessGraphic(),
                 ),
               ),
               const Spacer(),
-              AnimatedBuilder(
-                animation: _entranceController,
-                builder: (context, _) {
-                  return FadeTransition(
-                    opacity: _buttonFade,
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: widget.onGoToHome,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppTheme.primaryDarkBlue,
-                        ),
-                        child: const Text('Перейти в аптечку'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 52),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: widget.onGoToHome,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size.fromHeight(56),
+                      shape: const StadiumBorder(),
+                      elevation: 0,
+                      shadowColor: Colors.black.withValues(alpha: 0.18),
+                    ),
+                    child: const Text(
+                      'Перейти в аптечку',
+                      style: TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
-              const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuccessGraphic extends StatelessWidget {
+  const _SuccessGraphic();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 240,
+      height: 240,
+      child: Stack(
+        alignment: Alignment.center,
+        children: const [
+          _CircleStroke(size: 240, opacity: 0.12),
+          _CircleStroke(size: 190, opacity: 0.16),
+          _CircleStroke(size: 145, opacity: 0.24),
+          _CircleStroke(size: 138, opacity: 1, width: 10),
+          Icon(Icons.check, color: Colors.white, size: 56, weight: 700),
+        ],
+      ),
+    );
+  }
+}
+
+class _CircleStroke extends StatelessWidget {
+  const _CircleStroke({
+    required this.size,
+    required this.opacity,
+    this.width = 2,
+  });
+
+  final double size;
+  final double opacity;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: opacity),
+          width: width,
         ),
       ),
     );

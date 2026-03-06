@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../../app_theme.dart';
-import '../widgets/error_text_field.dart';
+
+import '../../../core/app_design.dart';
 import '../../../core/validation.dart';
+import '../widgets/auth_ui.dart';
+import '../widgets/error_text_field.dart';
 
 class NewPasswordScreen extends StatefulWidget {
-  const NewPasswordScreen({
-    super.key,
-    required this.onSubmit,
-  });
+  const NewPasswordScreen({super.key, required this.onSubmit});
 
-  final Future<void> Function(String newPassword, String repeatPassword) onSubmit;
+  final Future<void> Function(String newPassword, String repeatPassword)
+  onSubmit;
 
   @override
   State<NewPasswordScreen> createState() => _NewPasswordScreenState();
@@ -38,77 +38,73 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
         _passwordController.text,
       );
     });
-    if (_passwordError != null || _repeatError != null) return;
+    if (_passwordError != null || _repeatError != null) {
+      return;
+    }
+
     setState(() => _loading = true);
     try {
       await widget.onSubmit(_passwordController.text, _repeatController.text);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              const Text(
-                'Восстановление пароля',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryDarkBlue,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Придумайте новый пароль',
-                style: TextStyle(fontSize: 14, color: AppTheme.textGrey),
-              ),
-              const SizedBox(height: 24),
-              ErrorTextField(
-                controller: _passwordController,
-                hint: 'Новый пароль',
-                obscureText: true,
-                errorText: _passwordError,
-                onChanged: (_) => setState(() => _passwordError = null),
-              ),
-              const SizedBox(height: 20),
-              ErrorTextField(
-                controller: _repeatController,
-                hint: 'Повторите пароль',
-                obscureText: true,
-                errorText: _repeatError,
-                onChanged: (_) => setState(() => _repeatError = null),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Продолжить'),
-                ),
-              ),
-            ],
+    return AuthPageScaffold(
+      showBackButton: true,
+      onBack: () => Navigator.of(context).pop(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Восстановление\nпароля',
+            style: TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.blueTitle,
+              height: 1.05,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
+          const SizedBox(height: 8),
+          const Text(
+            'Придумайте новый пароль',
+            style: TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppPalette.authSubtitle,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ErrorTextField(
+            controller: _passwordController,
+            hint: 'Новый пароль',
+            obscureText: true,
+            errorText: _passwordError,
+            onChanged: (_) => setState(() => _passwordError = null),
+          ),
+          const SizedBox(height: 9),
+          ErrorTextField(
+            controller: _repeatController,
+            hint: 'Повторите пароль',
+            obscureText: true,
+            errorText: _repeatError,
+            onChanged: (_) => setState(() => _repeatError = null),
+          ),
+          const SizedBox(height: 22),
+          AuthPrimaryButton(
+            label: 'Продолжить',
+            loading: _loading,
+            onPressed: _submit,
+          ),
+        ],
       ),
     );
   }

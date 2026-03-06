@@ -1,111 +1,137 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../../core/app_design.dart';
+import 'dart:math' as math;
 
-/// Вводный экран: готовый фон, персонаж Kodee, приветствие, кнопка «Далее».
+import 'package:flutter/material.dart';
+
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key, required this.onNext});
 
   final VoidCallback onNext;
 
-  static const String _assetBackground = 'assets/Rectangle_1972-1f08dae6-9e9b-4423-88ae-f08ec3d810b5.png';
-  static const String _assetKodee = 'assets/Kodee-4c925e8d-a60e-4c13-8ebc-518e4d23dbfb.png';
-
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Готовый фон
-        Positioned.fill(
-          child: Image.asset(
-            _assetBackground,
-            fit: BoxFit.cover,
+    return Scaffold(
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment(1.05, 0.1),
+            end: Alignment(-0.05, 1.1),
+            colors: [
+              Color(0xFFD6FEC2),
+              Color(0xFF6C94FC),
+              Color(0xFF0E75F2),
+              Color(0xFFD6FEC2),
+            ],
+            stops: [0.0739, 0.3153, 0.8206, 0.9768],
           ),
         ),
-        // Персонаж Kodee — слева, как на макете (верхний левый угол, рука в центр)
-        Positioned(
-          left: -24,
-          top: MediaQuery.of(context).padding.top + 8,
-          width: 280,
-          height: 320,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Image.asset(
-              _assetKodee,
-              fit: BoxFit.contain,
-              height: 300,
-            ),
-          ),
-        ),
-        // Текст и кнопка
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              children: [
-                const Spacer(),
-                Text(
-                  'Добро пожаловать в ваш персональный трекер витаминов',
-                  style: GoogleFonts.commissioner(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: AppPalette.white,
-                    height: 1.25,
-                    letterSpacing: 0,
-                    decoration: TextDecoration.none,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Отслеживайте приём и сохраняйте баланс каждый день.',
-                  style: GoogleFonts.commissioner(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: AppPalette.white.withOpacity(0.9),
-                    height: 1.35,
-                    letterSpacing: 0,
-                    decoration: TextDecoration.none,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  child: Material(
-                    elevation: 2,
-                    borderRadius: BorderRadius.circular(14),
-                    shadowColor: AppPalette.blueDark.withOpacity(0.25),
-                    child: ElevatedButton(
-                      onPressed: onNext,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPalette.white,
-                        foregroundColor: AppPalette.blueDark,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Далее',
-                        style: GoogleFonts.commissioner(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0,
-                          decoration: TextDecoration.none,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final imageSize = math.min(520.0, constraints.maxWidth * 1.34);
+              final headerHeight = math.min(
+                360.0,
+                math.max(250.0, constraints.maxHeight * 0.39),
+              );
+
+              return Column(
+                children: [
+                  SizedBox(
+                    height: headerHeight,
+                    width: double.infinity,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Transform.translate(
+                        offset: const Offset(-50, 10),
+                        child: Opacity(
+                          opacity: 0.92,
+                          child: Image.asset(
+                            'assets/images/auth/kodee.png',
+                            width: imageSize,
+                            height: imageSize,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 36),
-              ],
-            ),
+                  Transform.translate(
+                    offset: const Offset(0, -20),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 0, 28, 20),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 41),
+                            child: Text.rich(
+                              TextSpan(
+                                text: 'Добро пожаловать\nв ваш персональный\n',
+                                children: const [
+                                  TextSpan(
+                                    text: 'трекер',
+                                    style: TextStyle(color: Color(0xFFD6FEC2)),
+                                  ),
+                                  TextSpan(text: '\u00A0витаминов'),
+                                ],
+                              ),
+                              style: const TextStyle(
+                                fontFamily: 'Commissioner',
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                height: 1.14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Отслеживайте приём и сохраняйте\nбаланс каждый день.',
+                            style: TextStyle(
+                              fontFamily: 'Commissioner',
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white.withValues(alpha: 0.9),
+                              height: 1.2,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 60),
+                    child: SizedBox(
+                      width: 260,
+                      child: ElevatedButton(
+                        onPressed: onNext,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size.fromHeight(56),
+                          elevation: 0,
+                          shadowColor: Colors.black.withValues(alpha: 0.18),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: const Text(
+                          'Далее',
+                          style: TextStyle(
+                            fontFamily: 'Commissioner',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
-      ],
+      ),
     );
   }
 }

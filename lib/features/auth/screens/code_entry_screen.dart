@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../../app_theme.dart';
+import '../../../core/app_design.dart';
+import '../widgets/auth_ui.dart';
 
 class CodeEntryScreen extends StatefulWidget {
   const CodeEntryScreen({
@@ -21,59 +24,94 @@ class CodeEntryScreen extends StatefulWidget {
 }
 
 class _CodeEntryScreenState extends State<CodeEntryScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
+
   int _resendSeconds = 0;
   bool _codeError = false;
-  final bool _verified = false;
+  bool _verified = false;
 
   @override
   void initState() {
     super.initState();
-    _focusNodes[0].requestFocus();
+    for (final node in _focusNodes) {
+      node.addListener(() {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
+    _focusNodes.first.requestFocus();
     _startResendTimer();
   }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    for (final node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  String get _code => _controllers.map((controller) => controller.text).join();
 
   void _startResendTimer() {
     setState(() => _resendSeconds = 40);
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
+      if (!mounted) {
+        return false;
+      }
       setState(() => _resendSeconds = (_resendSeconds - 1).clamp(0, 40));
       return _resendSeconds > 0;
     });
   }
 
-  @override
-  void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
-    super.dispose();
-  }
-
-  String get _code => _controllers.map((c) => c.text).join();
-
   void _onDigitChanged(int index, String value) {
-    if (value.length > 1) {
-      final digits = value.replaceAll(RegExp(r'\D'), '').split('');
-      for (var i = 0; i < digits.length && index + i < 6; i++) {
-        _controllers[index + i].text = digits[i];
-        if (index + i < 5) _focusNodes[index + i + 1].requestFocus();
+    final filtered = value.replaceAll(RegExp(r'\D'), '');
+
+    if (filtered.length > 1) {
+      for (
+        var offset = 0;
+        offset < filtered.length && index + offset < 6;
+        offset++
+      ) {
+        _controllers[index + offset].text = filtered[offset];
       }
-      _checkComplete();
-      return;
+      final target = (index + filtered.length).clamp(0, 5);
+      if (target < 6) {
+        _focusNodes[target].requestFocus();
+      }
+    } else {
+      final digit = filtered.isEmpty
+          ? ''
+          : filtered.substring(filtered.length - 1);
+      _controllers[index].value = TextEditingValue(
+        text: digit,
+        selection: TextSelection.collapsed(offset: digit.length),
+      );
+      if (digit.isNotEmpty) {
+        if (index < 5) {
+          _focusNodes[index + 1].requestFocus();
+        } else {
+          _focusNodes[index].unfocus();
+        }
+      } else if (index > 0) {
+        _focusNodes[index - 1].requestFocus();
+      }
     }
-    if (value.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    }
+
     setState(() {
       _codeError = false;
-      _checkComplete();
+      _verified = false;
     });
+    _checkComplete();
   }
 
   void _checkComplete() {
@@ -84,98 +122,159 @@ class _CodeEntryScreenState extends State<CodeEntryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onBack,
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 8),
-              const Text(
-                'Введите код из e-mail',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryDarkBlue,
+    return AuthPageScaffold(
+      showBackButton: true,
+      onBack: widget.onBack,
+      child: Column(
+        children: [
+          const Text(
+            'Введите код из e-mail',
+            style: TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.blueTitle,
+              height: 1.05,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Отправили его на ${widget.email}',
+            style: const TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppPalette.authSubtitle,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(6, _buildCodeField),
+          ),
+          const SizedBox(height: 10),
+          Opacity(
+            opacity: _codeError ? 1 : 0,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.error, size: 12, color: AppTheme.errorRed),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Отправили его на ${widget.email}',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textGrey),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(6, (i) {
-                  return SizedBox(
-                    width: 44,
-                    child: TextField(
-                      controller: _controllers[i],
-                      focusNode: _focusNodes[i],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onChanged: (v) => _onDigitChanged(i, v),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: _codeError
-                                ? AppTheme.errorRed
-                                : (_verified ? AppTheme.successGreen : AppTheme.borderGrey),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              if (_codeError) ...[
-                const SizedBox(height: 8),
-                const Row(
-                  children: [
-                    Icon(Icons.error, size: 14, color: AppTheme.errorRed),
-                    SizedBox(width: 6),
-                    Text('Неверный код', style: TextStyle(fontSize: 12, color: AppTheme.errorRed, fontStyle: FontStyle.italic)),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 24),
-              Text(
-                _resendSeconds > 0
-                    ? 'Получить код ещё раз через $_resendSeconds сек.'
-                    : 'Получить код ещё раз',
-                style: const TextStyle(fontSize: 14, color: AppTheme.textGrey),
-              ),
-              if (_resendSeconds == 0) ...[
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () async {
-                    await widget.onResendCode();
-                    _startResendTimer();
-                  },
-                  child: const Text(
-                    'Отправить снова',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.w500,
-                    ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Неверный код',
+                  style: TextStyle(
+                    fontFamily: 'Commissioner',
+                    fontSize: 15,
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.errorRed,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
+          const SizedBox(height: 4),
+          if (_resendSeconds > 0)
+            Text(
+              'Получить код ещё раз через $_resendSeconds сек.',
+              style: const TextStyle(
+                fontFamily: 'Commissioner',
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: AppPalette.authSubtitle,
+              ),
+              textAlign: TextAlign.center,
+            )
+          else
+            GestureDetector(
+              onTap: () async {
+                await widget.onResendCode();
+                _startResendTimer();
+              },
+              child: const Text(
+                'Получить код ещё раз',
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: AppPalette.blueMain,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodeField(int index) {
+    final isFocused = _focusNodes[index].hasFocus;
+    final borderColor = _codeError
+        ? (isFocused ? AppPalette.authCodeBorderFocus : AppPalette.errorRed)
+        : isFocused
+        ? AppPalette.authCodeBorderFocus
+        : _verified
+        ? AppPalette.authCodeBorderSuccess
+        : AppPalette.authSubtitle;
+
+    return Padding(
+      padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
+      child: SizedBox(
+        width: 50,
+        height: 75,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: AppPalette.authCodeBackground,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor, width: 2),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.16),
+                    blurRadius: 4,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+            if (_controllers[index].text.isEmpty)
+              const Text(
+                '0',
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 36.6,
+                  fontWeight: FontWeight.w400,
+                  color: Color.fromRGBO(117, 117, 117, 0.4),
+                ),
+              ),
+            TextField(
+              controller: _controllers[index],
+              focusNode: _focusNodes[index],
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 1,
+              textInputAction: TextInputAction.next,
+              style: const TextStyle(
+                fontFamily: 'Commissioner',
+                fontSize: 36.6,
+                fontWeight: FontWeight.w400,
+                color: Colors.black,
+              ),
+              cursorColor: Colors.transparent,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                counterText: '',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              onChanged: (value) => _onDigitChanged(index, value),
+            ),
+          ],
         ),
       ),
     );

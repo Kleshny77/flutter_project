@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../app_theme.dart';
 
 class CreatingAccountScreen extends StatefulWidget {
   const CreatingAccountScreen({super.key});
@@ -10,72 +9,75 @@ class CreatingAccountScreen extends StatefulWidget {
 
 class _CreatingAccountScreenState extends State<CreatingAccountScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fade;
-  late Animation<double> _scale;
+  late final AnimationController _rotationController;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
+    _rotationController = AnimationController(
       vsync: this,
-    );
-    _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _scale = Tween<double>(begin: 0.92, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-    _controller.forward();
+      duration: const Duration(milliseconds: 1050),
+    )..repeat();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(gradient: AppTheme.welcomeGradient),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment(0.0, 1.08),
+          end: Alignment(0.0, -0.08),
+          colors: [
+            Color(0xFFFFFFFF),
+            Color(0xFFDEFFCE),
+            Color(0xFF6F95FC),
+            Color(0xFF0773F1),
+          ],
+          stops: [0.0, 0.02, 0.55, 0.99],
+        ),
+      ),
       child: SafeArea(
-        child: Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return FadeTransition(
-                opacity: _fade,
-                child: ScaleTransition(
-                  scale: _scale,
-                  child: child,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Column(
+            children: [
+              const SizedBox(height: 72),
+              const Text(
+                'Создаём аккаунт...',
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  decoration: TextDecoration.none,
                 ),
-              );
-            },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Создаём аккаунт...',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const SizedBox(
-                  width: 48,
-                  height: 48,
+                textAlign: TextAlign.center,
+              ),
+              const Spacer(),
+              RotationTransition(
+                turns: _rotationController,
+                child: SizedBox(
+                  width: 96,
+                  height: 96,
                   child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                    strokeWidth: 6,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: Colors.white.withValues(alpha: 0),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              const SizedBox(height: 80),
+            ],
           ),
         ),
       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../app_theme.dart';
+
+import '../../../core/app_design.dart';
+import '../widgets/auth_ui.dart';
 
 class ForgotPasswordSentScreen extends StatelessWidget {
   const ForgotPasswordSentScreen({
@@ -13,38 +15,48 @@ class ForgotPasswordSentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Проверьте почту',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryDarkBlue,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Мы отправили ссылку для сброса пароля на $email. Перейдите по ссылке из письма, затем войдите с новым паролем.',
-                style: const TextStyle(fontSize: 16, color: AppTheme.textGrey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: onLogin,
-                  child: const Text('Войти'),
-                ),
-              ),
-            ],
+    return AuthPageScaffold(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Проверьте почту',
+            style: TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.blueTitle,
+              height: 1.05,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            'Мы отправили ссылку для сброса пароля на\n$email',
+            style: const TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppPalette.authSubtitle,
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Перейдите по ссылке из письма,\nзатем войдите с новым паролем.',
+            style: TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppPalette.authSubtitle,
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 22),
+          AuthPrimaryButton(label: 'Войти', onPressed: onLogin),
+        ],
       ),
     );
   }
