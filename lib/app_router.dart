@@ -33,11 +33,15 @@ class AppRouter {
     refreshListenable: _AuthRefresh(_authService),
     redirect: (context, state) {
       final user = _authService.currentUser;
-      final onAuth = state.matchedLocation == welcome ||
+      final onAuth =
+          state.matchedLocation == welcome ||
           state.matchedLocation == register ||
           state.matchedLocation == login ||
           state.matchedLocation.startsWith(forgotPassword);
-      if (user != null && onAuth && state.matchedLocation != accountCreated && state.matchedLocation != creating) {
+      if (user != null &&
+          onAuth &&
+          state.matchedLocation != accountCreated &&
+          state.matchedLocation != creating) {
         return home;
       }
       if (user == null && state.matchedLocation == home) {
@@ -48,9 +52,8 @@ class AppRouter {
     routes: [
       GoRoute(
         path: welcome,
-        builder: (context, _) => WelcomeScreen(
-          onNext: () => context.push(register),
-        ),
+        builder: (context, _) =>
+            WelcomeScreen(onNext: () => context.push(register)),
       ),
       GoRoute(
         path: register,
@@ -75,18 +78,16 @@ class AppRouter {
       ),
       GoRoute(
         path: accountCreated,
-        builder: (context, _) => AccountCreatedScreen(
-          onGoToHome: () => context.go(home),
-        ),
+        builder: (context, _) =>
+            AccountCreatedScreen(onGoToHome: () => context.go(home)),
       ),
       GoRoute(
         path: error,
         builder: (context, state) {
-          final message = state.extra as String? ?? 'Не получилось войти в аккаунт. Попробуйте выйти из приложения и повторите попытку.';
-          return ErrorScreen(
-            message: message,
-            onRetry: () => context.pop(),
-          );
+          final message =
+              state.extra as String? ??
+              'Не получилось войти в аккаунт. Попробуйте выйти из приложения и повторите попытку.';
+          return ErrorScreen(message: message, onRetry: () => context.pop());
         },
       ),
       GoRoute(
@@ -110,14 +111,19 @@ class AppRouter {
       GoRoute(
         path: home,
         builder: (context, _) => HomeScreen(
-          user: _authService.currentUser!,
+          userId: _authService.currentUser!.uid,
+          userEmail: _authService.currentUser!.email,
           onSignOut: _onSignOut,
         ),
       ),
     ],
   );
 
-  Future<void> _onRegister(String email, String password, String repeatPassword) async {
+  Future<void> _onRegister(
+    String email,
+    String password,
+    String repeatPassword,
+  ) async {
     await _authService.signUp(email, password);
   }
 
