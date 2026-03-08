@@ -8,6 +8,7 @@ import 'package:flutter_project/features/home/models/home_tab.dart';
 import 'package:flutter_project/features/home/models/pharmacy_reminder.dart';
 import 'package:flutter_project/features/home/models/pharmacy_reminder_input.dart';
 import 'package:flutter_project/features/home/models/pharmacy_vitamin.dart';
+import 'package:flutter_project/features/home/models/vitamin_draft.dart';
 import 'package:flutter_project/features/home/models/vitamin_catalog_item.dart';
 import 'package:flutter_project/features/home/models/weekday.dart';
 import 'package:flutter_project/features/home/screens/pharmacy_flow_screens.dart';
@@ -74,6 +75,58 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shows mapped dose unit inside the dose field', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AddVitaminScreen(
+          repository: _FakePharmacyRepository(),
+          onFlowCompleted: _noop,
+          onTabRequested: _noopTab,
+          initialDraft: VitaminDraft.empty().copyWith(type: 'Спрей'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Введите количество'), findsOneWidget);
+    expect(find.text('нажатия'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('adds unit after vitamin type is selected', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AddVitaminScreen(
+          repository: _FakePharmacyRepository(),
+          onFlowCompleted: _noop,
+          onTabRequested: _noopTab,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '5');
+    await tester.pump();
+
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('нажатий'), findsNothing);
+
+    await tester.tap(find.text('Вид витамина'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Спрей'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('нажатий'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders vitamin details screen', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -91,6 +144,56 @@ void main() {
     expect(find.text('Витамин D'), findsOneWidget);
     expect(find.text('Настроить'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  test('maps dose units by vitamin type', () {
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Таблетки', amountText: '2'),
+      'шт',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Капсулы', amountText: '1'),
+      'шт',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Порошок', amountText: '5'),
+      'г',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Жидкость', amountText: '10'),
+      'мл',
+    );
+  });
+
+  test('pluralizes drops and sprays correctly', () {
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Капли', amountText: '1'),
+      'капля',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Капли', amountText: '2'),
+      'капли',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Капли', amountText: '5'),
+      'капель',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Спрей', amountText: '1'),
+      'нажатие',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Спрей', amountText: '2'),
+      'нажатия',
+    );
+    expect(
+      PharmacyFlowLogic.doseUnitFor(type: 'Спрей', amountText: '5'),
+      'нажатий',
+    );
+    expect(
+      PharmacyFlowLogic.composeDose(type: 'Спрей', amountText: '5'),
+      '5 нажатий',
+    );
   });
 }
 

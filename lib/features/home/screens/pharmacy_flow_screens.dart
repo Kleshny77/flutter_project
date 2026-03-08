@@ -236,6 +236,12 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final doseUnit = PharmacyFlowLogic.doseUnitFor(
+      type: _draft.type,
+      amountText: _doseController.text,
+      defaultUnit: _draft.catalogDefaultUnit,
+    );
+
     return _PharmacyFlowScaffold(
       selectedTab: HomeTab.pharmacy,
       onTabRequested: _handleTabTap,
@@ -289,64 +295,67 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: _doseController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Введите количество',
-                hintStyle: const TextStyle(
+            SizedBox(
+              height: 48,
+              child: TextField(
+                controller: _doseController,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                textAlignVertical: TextAlignVertical.center,
+                style: const TextStyle(
                   fontFamily: 'Commissioner',
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFE3EEFF),
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
-                filled: true,
-                fillColor: AppPalette.blueMain,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
+                decoration: InputDecoration(
+                  hintText: 'Введите количество',
+                  hintStyle: const TextStyle(
+                    fontFamily: 'Commissioner',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE3EEFF),
+                  ),
+                  filled: true,
+                  fillColor: AppPalette.blueMain,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  suffixText: doseUnit.isEmpty ? null : doseUnit,
+                  suffixStyle: const TextStyle(
+                    fontFamily: 'Commissioner',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE3EEFF),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              PharmacyFlowLogic.doseUnitFor(
-                type: _draft.type,
-                amountText: _doseController.text,
-                defaultUnit: _draft.catalogDefaultUnit,
-              ),
-              style: const TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 12,
-                color: Color(0xFF8C8C8C),
               ),
             ),
             const SizedBox(height: 28),
             Row(
-              children: IntakeMoment.values
-                  .map(
-                    (moment) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _IntakeMomentCard(
-                          moment: moment,
-                          selected: _draft.intake == moment,
-                          onTap: () => setState(() {
-                            _draft = _draft.copyWith(intake: moment);
-                          }),
-                        ),
-                      ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = 0; index < IntakeMoment.values.length; index++) ...[
+                  Expanded(
+                    child: _IntakeMomentCard(
+                      moment: IntakeMoment.values[index],
+                      selected: _draft.intake == IntakeMoment.values[index],
+                      onTap: () => setState(() {
+                        _draft = _draft.copyWith(
+                          intake: IntakeMoment.values[index],
+                        );
+                      }),
                     ),
-                  )
-                  .toList(),
+                  ),
+                  if (index != IntakeMoment.values.length - 1)
+                    const SizedBox(width: 8),
+                ],
+              ],
             ),
             const SizedBox(height: 18),
             TextField(
@@ -1356,45 +1365,51 @@ class _IntakeMomentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 88,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.16),
-              blurRadius: 5,
-              offset: Offset(0, 2),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              decoration: BoxDecoration(
+                color: selected ? AppPalette.blueMain : Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(0, 0, 0, 0.16),
+                    blurRadius: 5,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(
+                  color: selected
+                      ? Colors.transparent
+                      : Colors.black.withValues(alpha: 0.12),
+                ),
+              ),
+              padding: const EdgeInsets.all(18),
+              child: Center(
+                child: Image.asset(
+                  selected ? moment.selectedIconAsset : moment.iconAsset,
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
-          ],
-          border: Border.all(
-            color: selected ? AppPalette.blueMain : Colors.black.withValues(alpha: 0.08),
           ),
-        ),
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-        child: Column(
-          children: [
-            Expanded(
-              child: Image.asset(
-                selected ? moment.selectedIconAsset : moment.iconAsset,
-                fit: BoxFit.contain,
-              ),
+          const SizedBox(height: 10),
+          Text(
+            moment.title,
+            style: const TextStyle(
+              fontFamily: 'Commissioner',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+              height: 1.1,
             ),
-            const SizedBox(height: 8),
-            Text(
-              moment.title,
-              style: const TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.black,
-                height: 1.1,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -2210,32 +2225,43 @@ class PharmacyFlowLogic {
     String? defaultUnit,
   }) {
     final amount = int.tryParse(amountText);
-    if (defaultUnit != null && defaultUnit.trim().isNotEmpty) {
-      return defaultUnit.trim();
+    final normalizedType = type.trim().toLowerCase();
+    if (normalizedType.isEmpty) {
+      return '';
     }
-    final lowerType = type.trim().toLowerCase();
-    if (lowerType.contains('капсул')) {
-      return amount == 1 ? 'капсула' : 'капсулы';
+    switch (normalizedType) {
+      case 'таблетки':
+      case 'капсулы':
+      case 'жевательные таблетки':
+      case 'ампулы':
+      case 'уколы':
+        return 'шт';
+      case 'порошок':
+        return 'г';
+      case 'жидкость':
+        return 'мл';
+      case 'капли':
+        return _pluralizeRussian(
+          amount,
+          one: 'капля',
+          few: 'капли',
+          many: 'капель',
+          fallback: 'капли',
+        );
+      case 'спрей':
+        return _pluralizeRussian(
+          amount,
+          one: 'нажатие',
+          few: 'нажатия',
+          many: 'нажатий',
+          fallback: 'нажатия',
+        );
+      default:
+        if (defaultUnit != null && defaultUnit.trim().isNotEmpty) {
+          return defaultUnit.trim();
+        }
+        return '';
     }
-    if (lowerType.contains('таблет')) {
-      return amount == 1 ? 'таблетка' : 'таблетки';
-    }
-    if (lowerType.contains('капл')) {
-      return amount == 1 ? 'капля' : 'капли';
-    }
-    if (lowerType.contains('порош')) {
-      return 'порция';
-    }
-    if (lowerType.contains('ампул')) {
-      return amount == 1 ? 'ампула' : 'ампулы';
-    }
-    if (lowerType.contains('спрей')) {
-      return 'доза';
-    }
-    if (lowerType.contains('укол')) {
-      return amount == 1 ? 'укол' : 'укола';
-    }
-    return 'ед.';
   }
 
   static String composeDose({
@@ -2243,12 +2269,45 @@ class PharmacyFlowLogic {
     required String amountText,
     String? defaultUnit,
   }) {
+    final normalizedAmount = amountText.trim();
     final unit = doseUnitFor(
       type: type,
-      amountText: amountText,
+      amountText: normalizedAmount,
       defaultUnit: defaultUnit,
     );
-    return '${amountText.trim()} $unit'.trim();
+    if (normalizedAmount.isEmpty) {
+      return '';
+    }
+    if (unit.isEmpty) {
+      return normalizedAmount;
+    }
+    return '$normalizedAmount $unit';
+  }
+
+  static String _pluralizeRussian(
+    int? amount, {
+    required String one,
+    required String few,
+    required String many,
+    required String fallback,
+  }) {
+    if (amount == null) {
+      return fallback;
+    }
+    final mod100 = amount % 100;
+    if (mod100 >= 11 && mod100 <= 14) {
+      return many;
+    }
+    switch (amount % 10) {
+      case 1:
+        return one;
+      case 2:
+      case 3:
+      case 4:
+        return few;
+      default:
+        return many;
+    }
   }
 
   static String formatDateRu(DateTime value) {
