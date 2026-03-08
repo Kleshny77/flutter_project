@@ -36,6 +36,10 @@ dependencies:
   firebase_auth: ^5.3.4
   cloud_firestore: ^5.5.1
   go_router: ^14.6.2
+  uuid: ^4.5.3
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.4
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +67,10 @@ flutter:
     - assets/
     - assets/images/home/
     - assets/images/auth/
+    - assets/images/pharmacy/
+    - assets/images/profile/
+    - assets/images/onboarding/
+    - assets/images/schedule/
   fonts:
     - family: Commissioner
       fonts:
