@@ -13,11 +13,15 @@ class ForgotPasswordEmailScreen extends StatefulWidget {
     required this.authService,
     required this.onSendCode,
     required this.onBack,
+    this.initialEmail,
+    this.onSent,
   });
 
   final AuthService authService;
   final Future<void> Function(String email) onSendCode;
   final VoidCallback onBack;
+  final String? initialEmail;
+  final Future<void> Function(String email)? onSent;
 
   @override
   State<ForgotPasswordEmailScreen> createState() =>
@@ -29,6 +33,12 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
   String? _emailError;
   String? _authError;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.text = widget.initialEmail?.trim() ?? '';
+  }
 
   @override
   void dispose() {
@@ -51,9 +61,14 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
       if (!mounted) {
         return;
       }
-      GoRouter.of(
-        context,
-      ).push('/forgot-password-sent', extra: _emailController.text);
+      if (widget.onSent != null) {
+        await widget.onSent!(_emailController.text.trim());
+        if (mounted) {
+          widget.onBack();
+        }
+        return;
+      }
+      GoRouter.of(context).push('/forgot-password-sent', extra: _emailController.text);
     } catch (e) {
       setState(() {
         _authError = widget.authService.mapAuthException(e);

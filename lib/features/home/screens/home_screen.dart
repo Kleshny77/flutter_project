@@ -1,21 +1,19 @@
+import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../core/app_design.dart';
+import '../../profile/data/user_profile_repository.dart';
+import '../../profile/models/user_profile.dart';
+import '../../profile/screens/edit_profile_screen.dart';
+import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
+import '../models/home_tab.dart';
 import '../models/pharmacy_vitamin.dart';
-
-enum HomeTab {
-  schedule('Расписание', 'assets/images/home/calendar_tab.png'),
-  pharmacy('Аптечка', 'assets/images/home/aptechka_tab.png'),
-  stats('Статистика', 'assets/images/home/statistics_tab.png');
-
-  const HomeTab(this.title, this.assetPath);
-
-  final String title;
-  final String assetPath;
-}
+import 'pharmacy_flow_screens.dart';
+import 'schedule_tab.dart';
+import '../widgets/home_onboarding_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({
@@ -37,7 +35,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<_PharmacyTabState> _pharmacyTabKey =
+      GlobalKey<_PharmacyTabState>();
+  final UserProfileRepository _profileRepository = UserProfileRepository();
+  final PostRegistrationOnboardingStorage _onboardingStorage =
+      PostRegistrationOnboardingStorage();
   HomeTab _selectedTab = HomeTab.pharmacy;
+  UserProfile _profile = const UserProfile.empty();
+  HomeOnboardingStep? _onboardingStep;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,25 +69,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     _HomeTopHeader(
                       onPlusTap: _showFamilyAccountDialog,
                       onProfileTap: _showProfileSheet,
+                      avatarBytes: _profile.avatarBytes,
                     ),
                     Expanded(
                       child: IndexedStack(
                         index: _selectedTab.index,
                         children: [
-                          _ComingSoonTab(
-                            title: 'Расписание',
+                          ScheduleTab(
+                            repository: widget.pharmacyRepository,
+                            onAdd: _openAddVitaminFlow,
                             bottomInset: bottomInset,
                           ),
                           _PharmacyTab(
+                            key: _pharmacyTabKey,
                             repository: widget.pharmacyRepository,
-                            onAdd: _showAddVitaminDialog,
-                            onOpenVitamin: _showVitaminDetailsDialog,
+                            onAdd: () {
+                              _openAddVitaminFlow();
+                            },
+                            onOpenVitamin: (vitamin) {
+                              _openVitaminDetailsFlow(vitamin);
+                            },
                             bottomInset: bottomInset,
                           ),
-                          _ComingSoonTab(
-                            title: 'Статистика',
-                            bottomInset: bottomInset,
-                          ),
+                          const _StatsTab(),
                         ],
                       ),
                     ),
@@ -90,6 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _BottomNavigationHost(
                   selectedTab: _selectedTab,
                   onSelect: (tab) {
+                    if (_onboardingStep != null && tab != HomeTab.pharmacy) {
+                      return;
+                    }
                     if (tab == _selectedTab) {
                       return;
                     }
@@ -99,9 +117,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
               ),
-            ],
-          ),
+              if (_onboardingStep != null)
+                HomeOnboardingOverlay(
+                  step: _onboardingStep!,
+                  onClose: _dismissOnboarding,
+                  onNext: _goToNextOnboardingStep,
+                  onPrevious: _goToPreviousOnboardingStep,
+                ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -113,90 +138,56 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showAddVitaminDialog() {
-    _showInfoDialog(
-      title: 'Добавление витамина',
-      message: 'Экран добавления витамина перенесу следующим этапом.',
+  Future<void> _openAddVitaminFlow() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AddVitaminScreen(
+          repository: widget.pharmacyRepository,
+          onFlowCompleted: _reloadPharmacy,
+          onTabRequested: _handleTabRequestedFromFlow,
+        ),
+      ),
     );
   }
 
-  void _showVitaminDetailsDialog(PharmacyVitamin vitamin) {
-    _showInfoDialog(
-      title: vitamin.title,
-      message: 'Экран просмотра витамина подключу следующим этапом.',
+  Future<void> _openVitaminDetailsFlow(PharmacyVitamin vitamin) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => VitaminDetailsScreen(
+          repository: widget.pharmacyRepository,
+          reminderId: vitamin.id,
+          onFlowCompleted: _reloadPharmacy,
+          onTabRequested: _handleTabRequestedFromFlow,
+        ),
+      ),
     );
+  }
+
+  void _reloadPharmacy() {
+    _pharmacyTabKey.currentState?.reload();
+  }
+
+  void _handleTabRequestedFromFlow(HomeTab tab) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedTab = tab;
+    });
   }
 
   Future<void> _showProfileSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+    await Navigator.of(context).push(
+      MaterialPageRoute<bool>(
+        builder: (context) => EditProfileScreen(
+          userId: widget.userId,
+          fallbackEmail: widget.userEmail,
+          onSignOut: widget.onSignOut,
+          repository: _profileRepository,
+        ),
       ),
-      builder: (sheetContext) {
-        final email = widget.userEmail?.trim().isNotEmpty == true
-            ? widget.userEmail!.trim()
-            : 'Аккаунт без e-mail';
-
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD9D9D9),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const _ProfileCircleButton(size: 72),
-                const SizedBox(height: 16),
-                Text(
-                  email,
-                  style: const TextStyle(
-                    fontFamily: 'Commissioner',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF3B3B3B),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(sheetContext).pop();
-                      await widget.onSignOut();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppPalette.blueMain,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(54),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    child: const Text(
-                      'Выйти из аккаунта',
-                      style: TextStyle(
-                        fontFamily: 'Commissioner',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
+    await _loadProfile();
   }
 
   void _showInfoDialog({required String title, required String message}) {
@@ -237,6 +228,72 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Future<void> _bootstrap() async {
+    await _profileRepository.upsertEmail(
+      userId: widget.userId,
+      email: widget.userEmail ?? '',
+    );
+    await _loadProfile();
+    await _loadOnboardingState();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _profileRepository.loadProfile(
+      userId: widget.userId,
+      fallbackEmail: widget.userEmail,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _profile = profile;
+    });
+  }
+
+  Future<void> _loadOnboardingState() async {
+    final shouldPresent = await _onboardingStorage.shouldPresentOnboarding();
+    if (!mounted || !shouldPresent) {
+      return;
+    }
+    setState(() {
+      _selectedTab = HomeTab.pharmacy;
+      _onboardingStep = HomeOnboardingStep.schedule;
+    });
+  }
+
+  Future<void> _dismissOnboarding() async {
+    await _onboardingStorage.markCompleted();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _onboardingStep = null;
+    });
+  }
+
+  void _goToNextOnboardingStep() {
+    final next = _onboardingStep?.next;
+    if (next == null) {
+      _dismissOnboarding();
+      return;
+    }
+    setState(() {
+      _selectedTab = HomeTab.pharmacy;
+      _onboardingStep = next;
+    });
+  }
+
+  void _goToPreviousOnboardingStep() {
+    final previous = _onboardingStep?.previous;
+    if (previous == null) {
+      return;
+    }
+    setState(() {
+      _selectedTab = HomeTab.pharmacy;
+      _onboardingStep = previous;
+    });
+  }
 }
 
 class _BottomNavigationHost extends StatelessWidget {
@@ -274,10 +331,15 @@ class _BottomNavigationHost extends StatelessWidget {
 }
 
 class _HomeTopHeader extends StatelessWidget {
-  const _HomeTopHeader({required this.onPlusTap, required this.onProfileTap});
+  const _HomeTopHeader({
+    required this.onPlusTap,
+    required this.onProfileTap,
+    this.avatarBytes,
+  });
 
   final VoidCallback onPlusTap;
   final VoidCallback onProfileTap;
+  final Uint8List? avatarBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +362,7 @@ class _HomeTopHeader extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileCircleButton(onTap: onProfileTap),
+              _ProfileCircleButton(onTap: onProfileTap, avatarBytes: avatarBytes),
               const SizedBox(width: 12),
               _SmallPlusCircleButton(onTap: onPlusTap),
             ],
@@ -312,13 +374,14 @@ class _HomeTopHeader extends StatelessWidget {
 }
 
 class _ProfileCircleButton extends StatelessWidget {
-  const _ProfileCircleButton({this.onTap, this.size = 46});
+  const _ProfileCircleButton({this.onTap, this.avatarBytes});
 
   final VoidCallback? onTap;
-  final double size;
+  final Uint8List? avatarBytes;
 
   @override
   Widget build(BuildContext context) {
+    const size = 46.0;
     final borderRadius = BorderRadius.circular(size / 2);
     final imageSize = math.max(0.0, size - 2);
 
@@ -350,12 +413,65 @@ class _ProfileCircleButton extends StatelessWidget {
         padding: const EdgeInsets.all(1),
         child: ClipRRect(
           borderRadius: borderRadius,
-          child: Image.asset(
-            'assets/images/home/profile.png',
-            width: imageSize,
-            height: imageSize,
-            fit: BoxFit.cover,
-          ),
+          child: avatarBytes == null
+              ? Image.asset(
+                  'assets/images/home/profile.png',
+                  width: imageSize,
+                  height: imageSize,
+                  fit: BoxFit.cover,
+                )
+              : Image.memory(
+                  avatarBytes!,
+                  width: imageSize,
+                  height: imageSize,
+                  fit: BoxFit.cover,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatsTab extends StatelessWidget {
+  const _StatsTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/home/statistics_tab.png',
+              width: 72,
+              height: 72,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Статистика',
+              style: TextStyle(
+                fontFamily: 'Commissioner',
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Скоро здесь появится статистика приёма лекарств.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Commissioner',
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                color: Colors.black54,
+                height: 1.3,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -532,67 +648,11 @@ class _TabBarItem extends StatelessWidget {
   }
 }
 
-class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.title, required this.bottomInset});
-
-  final String title;
-  final double bottomInset;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 32, 24, bottomInset + 30),
-      child: Column(
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF3B3B3B),
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 120),
-          Container(
-            width: 112,
-            height: 112,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F8FF),
-              borderRadius: BorderRadius.circular(32),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              title.characters.first,
-              style: const TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 44,
-                fontWeight: FontWeight.w700,
-                color: AppPalette.blueMain,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Этот раздел перенесу следующим этапом, после точного завершения вкладки Аптечка.',
-            style: TextStyle(
-              fontFamily: 'Commissioner',
-              fontSize: 16,
-              color: Color(0xFF656565),
-              height: 1.35,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 enum _PharmacyStatus { loading, loaded, failed }
 
 class _PharmacyTab extends StatefulWidget {
   const _PharmacyTab({
+    super.key,
     required this.repository,
     required this.onAdd,
     required this.onOpenVitamin,
@@ -615,6 +675,10 @@ class _PharmacyTabState extends State<_PharmacyTab> {
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  void reload() {
     _load();
   }
 

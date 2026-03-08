@@ -10,6 +10,8 @@ import 'features/auth/screens/account_created_screen.dart';
 import 'features/auth/screens/error_screen.dart';
 import 'features/auth/screens/forgot_password_email_screen.dart';
 import 'features/auth/screens/forgot_password_sent_screen.dart';
+import 'features/home/data/home_preferences.dart';
+import 'features/profile/data/user_profile_repository.dart';
 import 'home_screen.dart';
 
 class AppRouter {
@@ -125,6 +127,11 @@ class AppRouter {
     String repeatPassword,
   ) async {
     await _authService.signUp(email, password);
+    final user = _authService.currentUser;
+    if (user != null) {
+      await UserProfileRepository().upsertEmail(userId: user.uid, email: email);
+    }
+    await PostRegistrationOnboardingStorage().markPending();
   }
 
   Future<void> _onLogin(String email, String password) async {
