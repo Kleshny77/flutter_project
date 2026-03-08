@@ -104,7 +104,8 @@ class VitaminDraft {
   factory VitaminDraft.empty() {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, now.day);
-    return VitaminDraft(courseStartDate: start);
+    final end = start.add(const Duration(days: 14));
+    return VitaminDraft(courseStartDate: start, courseEndDate: end);
   }
 
   VitaminDraft copyWith({

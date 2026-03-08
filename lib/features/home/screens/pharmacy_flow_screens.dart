@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../core/app_design.dart';
 import '../data/pharmacy_repository.dart';
@@ -443,22 +444,33 @@ class AddVitaminScheduleScreen extends StatefulWidget {
 }
 
 class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
-  late List<String> _times;
+  final GlobalKey<AnimatedListState> _timesListKey =
+      GlobalKey<AnimatedListState>();
+  late List<_ScheduleTimeEntry> _timeEntries;
   late Set<Weekday> _selectedDays;
   late DateTime _startDate;
   DateTime? _endDate;
+  int _nextTimeEntryId = 0;
 
   @override
   void initState() {
     super.initState();
-    _times = widget.draft.intakeTimes.isEmpty
+    final initialTimes = widget.draft.intakeTimes.isEmpty
         ? [PharmacyFlowLogic.currentTimeString()]
         : [...widget.draft.intakeTimes];
+    _timeEntries = initialTimes
+        .map(
+          (time) => _ScheduleTimeEntry(
+            id: _nextTimeEntryId++,
+            time: time,
+          ),
+        )
+        .toList(growable: true);
     _selectedDays = widget.draft.weekdays.isEmpty
         ? Weekday.values.toSet()
         : widget.draft.weekdays.toSet();
     _startDate = widget.draft.courseStartDate;
-    _endDate = widget.draft.courseEndDate;
+    _endDate = widget.draft.courseEndDate ?? _startDate.add(const Duration(days: 14));
   }
 
   void _handleTabTap(HomeTab tab) {
@@ -470,7 +482,7 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
   }
 
   Future<void> _pickTime(int index) async {
-    final initial = PharmacyFlowLogic.timeToDate(_times[index]);
+    final initial = PharmacyFlowLogic.timeToDate(_timeEntries[index].time);
     DateTime selected = initial;
     await showModalBottomSheet<void>(
       context: context,
@@ -502,8 +514,87 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
       return;
     }
     setState(() {
-      _times[index] = PharmacyFlowLogic.dateToTime(selected);
+      _timeEntries[index] = _timeEntries[index].copyWith(
+        time: PharmacyFlowLogic.dateToTime(selected),
+      );
     });
+  }
+
+  void _addTimeEntry() {
+    final entry = _ScheduleTimeEntry(
+      id: _nextTimeEntryId++,
+      time: PharmacyFlowLogic.currentTimeString(),
+    );
+    final insertIndex = _timeEntries.length;
+    setState(() {
+      _timeEntries.add(entry);
+    });
+    _timesListKey.currentState?.insertItem(
+      insertIndex,
+      duration: const Duration(milliseconds: 260),
+    );
+  }
+
+  void _removeTimeEntry(int index) {
+    if (_timeEntries.length <= 1) {
+      return;
+    }
+
+    final removedEntry = _timeEntries.removeAt(index);
+    final removedOrder = index + 1;
+    _timesListKey.currentState?.removeItem(
+      index,
+      (context, animation) => _buildAnimatedTimeCard(
+        entry: removedEntry,
+        order: removedOrder,
+        animation: animation,
+        onTap: () {},
+      ),
+      duration: const Duration(milliseconds: 220),
+    );
+    setState(() {});
+  }
+
+  Widget _buildAnimatedTimeCard({
+    required _ScheduleTimeEntry entry,
+    required int order,
+    required Animation<double> animation,
+    required VoidCallback onTap,
+    VoidCallback? onDelete,
+  }) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ClipRect(
+        child: SizeTransition(
+          sizeFactor: curved,
+          axisAlignment: -1,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.035),
+              end: Offset.zero,
+            ).animate(curved),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(2, 2, 8, 8),
+              child: _SwipeToDeleteCard(
+                key: ValueKey('intake-time-${entry.id}'),
+                onDelete: onDelete,
+                child: _IntakeTimeCard(
+                  order: order,
+                  time: entry.time,
+                  onTap: onTap,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _pickDate({required bool isStart}) async {
@@ -532,7 +623,9 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
 
   void _goNext() {
     final updatedDraft = widget.draft.copyWith(
-      intakeTimes: _times,
+      intakeTimes: _timeEntries
+          .map((entry) => entry.time)
+          .toList(growable: false),
       weekdays: Weekday.values
           .where((day) => _selectedDays.contains(day))
           .toList(growable: false),
@@ -588,29 +681,27 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            Column(
-              children: List.generate(_times.length, (index) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _IntakeTimeCard(
-                    order: index + 1,
-                    time: _times[index],
-                    onTap: () => _pickTime(index),
-                    onDelete: _times.length > 1
-                        ? () => setState(() {
-                              _times.removeAt(index);
-                            })
-                        : null,
-                  ),
+            AnimatedList(
+              key: _timesListKey,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              initialItemCount: _timeEntries.length,
+              itemBuilder: (context, index, animation) {
+                final entry = _timeEntries[index];
+                return _buildAnimatedTimeCard(
+                  entry: entry,
+                  order: index + 1,
+                  animation: animation,
+                  onTap: () => _pickTime(index),
+                  onDelete:
+                      _timeEntries.length > 1 ? () => _removeTimeEntry(index) : null,
                 );
-              }),
+              },
             ),
             const SizedBox(height: 8),
             Center(
               child: GestureDetector(
-                onTap: () => setState(() {
-                  _times.add(PharmacyFlowLogic.currentTimeString());
-                }),
+                onTap: _addTimeEntry,
                 child: Container(
                   width: 50,
                   height: 50,
@@ -654,51 +745,27 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: Weekday.values.map((day) {
-                final selected = _selectedDays.contains(day);
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    if (selected) {
-                      _selectedDays.remove(day);
-                    } else {
-                      _selectedDays.add(day);
-                    }
-                  }),
-                  child: Container(
-                    width: 42,
-                    height: 39,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: selected ? AppPalette.blueMain : Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color.fromRGBO(0, 0, 0, 0.25),
-                          blurRadius: 3.3,
-                          offset: Offset(1, 1),
-                        ),
-                      ],
-                      border: Border.all(
-                        color: selected
-                            ? Colors.transparent
-                            : Colors.black.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: Text(
-                      day.label.toLowerCase(),
-                      style: TextStyle(
-                        fontFamily: 'Commissioner',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? Colors.white : AppPalette.blueMain,
-                      ),
+            Row(
+              children: [
+                for (var index = 0; index < Weekday.values.length; index++) ...[
+                  Expanded(
+                    child: _WeekdayChip(
+                      day: Weekday.values[index],
+                      selected: _selectedDays.contains(Weekday.values[index]),
+                      onTap: () => setState(() {
+                        final day = Weekday.values[index];
+                        if (_selectedDays.contains(day)) {
+                          _selectedDays.remove(day);
+                        } else {
+                          _selectedDays.add(day);
+                        }
+                      }),
                     ),
                   ),
-                );
-              }).toList(),
+                  if (index != Weekday.values.length - 1)
+                    const SizedBox(width: 6),
+                ],
+              ],
             ),
             const SizedBox(height: 28),
             const Text(
@@ -1292,26 +1359,47 @@ class _StepProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(3, (index) {
-        final filled = index < filledSegments;
-        return Expanded(
-          child: Container(
-            height: 4,
-            margin: EdgeInsets.only(right: index == 2 ? 0 : 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: filled
-                  ? const LinearGradient(
-                      colors: [Color(0xFF0773F1), Color(0xFFD6FEC2)],
-                    )
-                  : null,
-              color: filled ? null : const Color(0xFFD2D2D2),
-            ),
-          ),
-        );
-      }),
+    return SizedBox(
+      width: double.infinity,
+      height: 4,
+      child: CustomPaint(
+        painter: _StepProgressBarPainter(filledSegments: filledSegments),
+      ),
     );
+  }
+}
+
+class _StepProgressBarPainter extends CustomPainter {
+  const _StepProgressBarPainter({required this.filledSegments});
+
+  final int filledSegments;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const segmentCount = 3;
+    const gap = 12.0;
+    final segmentWidth = (size.width - gap * (segmentCount - 1)) / segmentCount;
+    final radius = Radius.circular(size.height / 2);
+    final backgroundPaint = Paint()..color = const Color(0xFFD2D2D2);
+    final gradientPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF0773F1), Color(0xFF80D8D1), Color(0xFFD6FEC2)],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    for (var index = 0; index < segmentCount; index++) {
+      final left = index * (segmentWidth + gap);
+      final rect = Rect.fromLTWH(left, 0, segmentWidth, size.height);
+      final rRect = RRect.fromRectAndRadius(rect, radius);
+      canvas.drawRRect(rRect, backgroundPaint);
+      if (index < filledSegments) {
+        canvas.drawRRect(rRect, gradientPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StepProgressBarPainter oldDelegate) {
+    return oldDelegate.filledSegments != filledSegments;
   }
 }
 
@@ -1427,13 +1515,11 @@ class _IntakeTimeCard extends StatelessWidget {
     required this.order,
     required this.time,
     required this.onTap,
-    this.onDelete,
   });
 
   final int order;
   final String time;
   final VoidCallback onTap;
-  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1468,12 +1554,6 @@ class _IntakeTimeCard extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
-              const Spacer(),
-              if (onDelete != null)
-                GestureDetector(
-                  onTap: onDelete,
-                  child: const Icon(Icons.delete_outline, color: Colors.white),
-                ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1500,6 +1580,25 @@ class _IntakeTimeCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ScheduleTimeEntry {
+  const _ScheduleTimeEntry({
+    required this.id,
+    required this.time,
+  });
+
+  final int id;
+  final String time;
+
+  _ScheduleTimeEntry copyWith({
+    String? time,
+  }) {
+    return _ScheduleTimeEntry(
+      id: id,
+      time: time ?? this.time,
     );
   }
 }
@@ -1727,6 +1826,137 @@ class _NotificationCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _WeekdayChip extends StatelessWidget {
+  const _WeekdayChip({
+    required this.day,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Weekday day;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppPalette.blueMain : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromRGBO(0, 0, 0, 0.25),
+                blurRadius: 3.3,
+                offset: Offset(1, 1),
+              ),
+            ],
+            border: Border.all(
+              color: selected
+                  ? Colors.transparent
+                  : Colors.black.withValues(alpha: 0.08),
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                day.label.toLowerCase(),
+                style: TextStyle(
+                  fontFamily: 'Commissioner',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : AppPalette.blueMain,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SwipeToDeleteCard extends StatelessWidget {
+  const _SwipeToDeleteCard({
+    super.key,
+    required this.child,
+    this.onDelete,
+  });
+
+  final Widget child;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onDelete == null) {
+      return child;
+    }
+
+    return Slidable(
+      key: key,
+      closeOnScroll: true,
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.34,
+        children: [
+          CustomSlidableAction(
+            autoClose: false,
+            onPressed: (context) {
+              final controller = Slidable.of(context);
+              if (controller != null) {
+                controller.close(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                ).whenComplete(() => onDelete?.call());
+                return;
+              }
+              onDelete?.call();
+            },
+            padding: const EdgeInsets.only(left: 10),
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF44336),
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  SizedBox(height: 8),
+                  FittedBox(
+                    child: Text(
+                      'Удалить',
+                      style: TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
