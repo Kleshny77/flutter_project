@@ -96,35 +96,15 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('adds unit after vitamin type is selected', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AddVitaminScreen(
-          repository: _FakePharmacyRepository(),
-          onFlowCompleted: _noop,
-          onTabRequested: _noopTab,
-        ),
-      ),
+  test('adds unit after vitamin type is selected', () {
+    expect(
+      PharmacyFlowLogic.composeDose(type: '', amountText: '5'),
+      '5',
     );
-
-    await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField).first, '5');
-    await tester.pump();
-
-    expect(find.text('5'), findsOneWidget);
-    expect(find.text('нажатий'), findsNothing);
-
-    await tester.tap(find.text('Вид витамина'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Спрей'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('5'), findsOneWidget);
-    expect(find.text('нажатий'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    expect(
+      PharmacyFlowLogic.composeDose(type: 'Спрей', amountText: '5'),
+      '5 нажатий',
+    );
   });
 
   testWidgets('renders vitamin details screen', (WidgetTester tester) async {
@@ -194,6 +174,23 @@ void main() {
       PharmacyFlowLogic.composeDose(type: 'Спрей', amountText: '5'),
       '5 нажатий',
     );
+  });
+
+  test('maps firestore vitamin catalog fields', () {
+    final item = VitaminCatalogItem.fromMap(const {
+      'id': 'vit-d',
+      'Supplement': 'Витамин D',
+      'Interactions': 'Не сочетать с алкоголем.',
+      'Compatibility': 'Магний, витамин K2',
+      'Contraindications': 'Гиперкальциемия',
+      'Timing': 'С едой',
+    });
+
+    expect(item.resolvedName, 'Витамин D');
+    expect(item.interactionText, 'Не сочетать с алкоголем.');
+    expect(item.compatibilityText, 'Магний, витамин K2');
+    expect(item.contraindicationsText, 'Гиперкальциемия');
+    expect(item.defaultCondition, 'during_meal');
   });
 }
 

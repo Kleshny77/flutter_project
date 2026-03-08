@@ -35,9 +35,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
 
   static const List<String> _rootCollectionCandidates = [
     'reminders',
-    'vitamins',
   ];
   static const List<String> _catalogCollectionCandidates = [
+    'vitamins',
     'catalog',
     'vitamin_catalog',
     'vitaminCatalog',
@@ -124,7 +124,12 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   @override
   Future<List<VitaminCatalogItem>> fetchCatalog([String query = '']) async {
     final normalizedQuery = query.trim().toLowerCase();
-    final items = await _loadCatalogItems();
+    List<VitaminCatalogItem> items;
+    try {
+      items = await _loadCatalogItems();
+    } on FirebaseException {
+      items = _fallbackCatalog;
+    }
     final filtered = normalizedQuery.isEmpty
         ? items
         : items.where((item) {
@@ -152,9 +157,13 @@ class FirestorePharmacyRepository implements PharmacyRepository {
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
       _loadReminderDocuments() async {
-    final nestedSnapshot = await _userRemindersCollection.get();
-    if (nestedSnapshot.docs.isNotEmpty) {
-      return nestedSnapshot.docs;
+    try {
+      final nestedSnapshot = await _userRemindersCollection.get();
+      if (nestedSnapshot.docs.isNotEmpty) {
+        return nestedSnapshot.docs;
+      }
+    } on FirebaseException {
+      return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     }
 
     final documents = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
@@ -162,10 +171,15 @@ class FirestorePharmacyRepository implements PharmacyRepository {
 
     for (final collection in _rootCollectionCandidates) {
       for (final ownerField in _ownerFieldCandidates) {
-        final snapshot = await _firestore
-            .collection(collection)
-            .where(ownerField, isEqualTo: userId)
-            .get();
+        QuerySnapshot<Map<String, dynamic>> snapshot;
+        try {
+          snapshot = await _firestore
+              .collection(collection)
+              .where(ownerField, isEqualTo: userId)
+              .get();
+        } on FirebaseException {
+          continue;
+        }
         for (final doc in snapshot.docs) {
           if (seenPaths.add(doc.reference.path)) {
             documents.add(doc);
@@ -180,15 +194,23 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   Future<DocumentReference<Map<String, dynamic>>?> _findReminderReference(
     String reminderId,
   ) async {
-    final nestedByDocId = await _userRemindersCollection.doc(reminderId).get();
-    if (nestedByDocId.exists) {
-      return nestedByDocId.reference;
+    try {
+      final nestedByDocId = await _userRemindersCollection.doc(reminderId).get();
+      if (nestedByDocId.exists) {
+        return nestedByDocId.reference;
+      }
+    } on FirebaseException {
+      return null;
     }
 
-    final nestedSnapshot =
-        await _userRemindersCollection.where('id', isEqualTo: reminderId).get();
-    if (nestedSnapshot.docs.isNotEmpty) {
-      return nestedSnapshot.docs.first.reference;
+    try {
+      final nestedSnapshot =
+          await _userRemindersCollection.where('id', isEqualTo: reminderId).get();
+      if (nestedSnapshot.docs.isNotEmpty) {
+        return nestedSnapshot.docs.first.reference;
+      }
+    } on FirebaseException {
+      return null;
     }
 
     final rootDocs = await _loadReminderDocuments();
@@ -207,26 +229,61 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     final seenIds = <String>{};
 
     for (final collectionName in _catalogCollectionCandidates) {
-      final snapshot = await _firestore.collection(collectionName).limit(300).get();
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      try {
+        snapshot = await _firestore.collection(collectionName).limit(300).get();
+      } on FirebaseException {
+        continue;
+      }
       if (snapshot.docs.isEmpty) {
         continue;
       }
+
       for (final doc in snapshot.docs) {
+        final data = doc.data();
+        if (!_looksLikeCatalogDocument(data)) {
+          continue;
+        }
         final item = VitaminCatalogItem.fromMap({
           'id': doc.id,
-          ...doc.data(),
+          ...data,
         });
         if (item.id.isNotEmpty && seenIds.add(item.id)) {
           items.add(item);
         }
       }
-    }
 
-    if (items.isNotEmpty) {
-      return items;
+      if (items.isNotEmpty) {
+        return items;
+      }
     }
 
     return _fallbackCatalog;
+  }
+
+  bool _looksLikeCatalogDocument(Map<String, dynamic> data) {
+    const catalogFields = [
+      'Supplement',
+      'supplement',
+      'displayName',
+      'display_name',
+      'name',
+      'title',
+      'Compatibility',
+      'compatibility_text',
+      'Interactions',
+      'interaction_text',
+      'Contraindications',
+      'contraindications_text',
+      'Timing',
+      'defaultCondition',
+      'default_condition',
+    ];
+
+    return catalogFields.any((field) {
+      final value = data[field];
+      return value is String && value.trim().isNotEmpty;
+    });
   }
 
   PharmacyReminder _parseReminder(

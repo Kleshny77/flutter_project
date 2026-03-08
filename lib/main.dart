@@ -46,6 +46,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Трекер витаминов',
       theme: AppTheme.theme,
+      builder: (context, child) => _DismissKeyboardOnTap(
+        child: child ?? const SizedBox.shrink(),
+      ),
       routerConfig: router.router,
     );
   }
@@ -60,6 +63,9 @@ class _FirebaseNotConfiguredApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: AppTheme.theme,
+      builder: (context, child) => _DismissKeyboardOnTap(
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: Scaffold(
         body: SafeArea(
           child: Padding(
@@ -97,6 +103,27 @@ class _FirebaseNotConfiguredApp extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DismissKeyboardOnTap extends StatelessWidget {
+  const _DismissKeyboardOnTap({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        final currentFocus = FocusManager.instance.primaryFocus;
+        if (currentFocus == null) {
+          return;
+        }
+        currentFocus.unfocus();
+      },
+      child: child,
     );
   }
 }

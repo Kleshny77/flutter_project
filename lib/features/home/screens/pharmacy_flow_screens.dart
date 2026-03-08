@@ -145,12 +145,19 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
     final item = await showModalBottomSheet<_CatalogSelectionResult>(
       context: context,
       isScrollControlled: true,
+      requestFocus: false,
       backgroundColor: Colors.transparent,
+      sheetAnimationStyle: const AnimationStyle(
+        duration: Duration(milliseconds: 360),
+        reverseDuration: Duration(milliseconds: 240),
+      ),
       builder: (context) => _CatalogSearchSheet(
         catalog: _catalog,
         loading: _loadingCatalog,
         errorMessage: _catalogError,
         initialQuery: _draft.name,
+        selectedCatalogId: _draft.catalogId,
+        selectedName: _draft.name,
       ),
     );
     if (!mounted || item == null) {
@@ -1737,12 +1744,16 @@ class _CatalogSearchSheet extends StatefulWidget {
     required this.loading,
     required this.errorMessage,
     required this.initialQuery,
+    required this.selectedCatalogId,
+    required this.selectedName,
   });
 
   final List<VitaminCatalogItem> catalog;
   final bool loading;
   final String? errorMessage;
   final String initialQuery;
+  final String? selectedCatalogId;
+  final String selectedName;
 
   @override
   State<_CatalogSearchSheet> createState() => _CatalogSearchSheetState();
@@ -1750,6 +1761,8 @@ class _CatalogSearchSheet extends StatefulWidget {
 
 class _CatalogSearchSheetState extends State<_CatalogSearchSheet> {
   late final TextEditingController _controller;
+
+  String get _normalizedSelectedName => widget.selectedName.trim().toLowerCase();
 
   @override
   void initState() {
@@ -1771,143 +1784,271 @@ class _CatalogSearchSheetState extends State<_CatalogSearchSheet> {
         : widget.catalog.where((item) {
             return item.resolvedName.toLowerCase().contains(query);
           }).toList();
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final sheetHeight = math.min(MediaQuery.of(context).size.height * 0.64, 470.0);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 0,
-        right: 0,
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+    return Container(
+      width: double.infinity,
+      height: sheetHeight,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, 0.12),
+            blurRadius: 24,
+            offset: Offset(0, -8),
+          ),
+        ],
       ),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: 420,
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 52,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD0D0D0),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F2F6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 12),
-                        const Icon(Icons.search, color: AppPalette.blueMain),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            autofocus: true,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              hintText: 'Введите название витамина...',
-                              border: InputBorder.none,
-                              hintStyle: TextStyle(
-                                fontFamily: 'Commissioner',
-                                color: Color(0xFF9E9E9E),
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_controller.text.isNotEmpty)
-                          IconButton(
-                            onPressed: () => setState(() {
-                              _controller.clear();
-                            }),
-                            icon: const Icon(Icons.cancel, color: Color(0xFF9E9E9E)),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      if (widget.loading && widget.catalog.isEmpty) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: AppPalette.blueMain,
-                          ),
-                        );
-                      }
-                      if (widget.errorMessage != null && widget.catalog.isEmpty) {
-                        return Center(
-                          child: Text(
-                            widget.errorMessage!,
-                            style: const TextStyle(
-                              fontFamily: 'Commissioner',
-                              color: Color(0xFF656565),
-                            ),
-                          ),
-                        );
-                      }
-                      if (filtered.isEmpty) {
-                        return Center(
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(
-                                _CatalogSelectionResult(
-                                  customName: _controller.text.trim(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              _controller.text.trim().isEmpty
-                                  ? 'Ничего не найдено'
-                                  : 'Использовать "${_controller.text.trim()}"',
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        );
-                      }
-                      return ListView.separated(
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final item = filtered[index];
-                          return ListTile(
-                            title: Text(
-                              item.resolvedName,
-                              style: const TextStyle(
-                                fontFamily: 'Commissioner',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            subtitle: item.defaultUnit == null
-                                ? null
-                                : Text(item.defaultUnit!),
-                            onTap: () => Navigator.of(context).pop(
-                              _CatalogSelectionResult(catalogItem: item),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+      child: Column(
+        children: [
+          const SizedBox(height: 6),
+          Container(
+            width: 54,
+            height: 5,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD5D5D5),
+              borderRadius: BorderRadius.circular(999),
             ),
           ),
-        ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7EBF0),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: AppPalette.blueMain,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      maxLines: 1,
+                      textAlignVertical: TextAlignVertical.center,
+                      onChanged: (_) => setState(() {}),
+                      style: const TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2C2C2C),
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Введите витамин',
+                        filled: false,
+                        fillColor: Colors.transparent,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        hintStyle: TextStyle(
+                          fontFamily: 'Commissioner',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9CA3AF),
+                        ),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _controller.clear();
+                    }),
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFBDBFC4),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 19,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (widget.loading && widget.catalog.isEmpty) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppPalette.blueMain,
+                    ),
+                  );
+                }
+                if (widget.errorMessage != null && widget.catalog.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Text(
+                        widget.errorMessage!,
+                        style: const TextStyle(
+                          fontFamily: 'Commissioner',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF656565),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+                if (filtered.isEmpty) {
+                  final customName = _controller.text.trim();
+                  if (customName.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'Ничего не найдено',
+                        style: TextStyle(
+                          fontFamily: 'Commissioner',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF656565),
+                        ),
+                      ),
+                    );
+                  }
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(24, 0, 24, safeBottom + 12),
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(
+                            _CatalogSelectionResult(customName: customName),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 14,
+                          ),
+                          backgroundColor: AppPalette.blueMain.withValues(
+                            alpha: 0.08,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: Text(
+                          'Использовать "$customName"',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Commissioner',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.blueMain,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: EdgeInsets.fromLTRB(22, 0, 22, safeBottom + 18),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE1E5EA),
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = filtered[index];
+                    final isSelected =
+                        item.id == widget.selectedCatalogId ||
+                            (widget.selectedCatalogId == null &&
+                                item.resolvedName.trim().toLowerCase() ==
+                                    _normalizedSelectedName);
+                    final subtitle = item.code?.trim().isNotEmpty == true
+                        ? item.code!.trim()
+                        : 'Витамин';
+                    return InkWell(
+                      onTap: () => Navigator.of(context).pop(
+                        _CatalogSelectionResult(catalogItem: item),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.resolvedName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Commissioner',
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF222222),
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    subtitle,
+                                    style: const TextStyle(
+                                      fontFamily: 'Commissioner',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFFB1B4BA),
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            SizedBox(
+                              width: 30,
+                              child: isSelected
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      color: AppPalette.blueSecondary,
+                                      size: 30,
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1977,43 +2118,50 @@ class _PrimaryGradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(100);
+
     return SizedBox(
       height: 52,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E7BF3), Color(0xFFA6C4DD)],
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: borderRadius,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E7BF3), Color(0xFFA6C4DD)],
+            ),
+            borderRadius: borderRadius,
           ),
-          borderRadius: BorderRadius.circular(100),
-        ),
-        child: ElevatedButton(
-          onPressed: loading ? null : onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(100),
+          child: InkWell(
+            onTap: loading ? null : onPressed,
+            borderRadius: borderRadius,
+            splashColor: Colors.white.withValues(alpha: 0.10),
+            highlightColor: Colors.white.withValues(alpha: 0.06),
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                        height: 1,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
             ),
           ),
-          child: loading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(
-                  label,
-                  style: const TextStyle(
-                    fontFamily: 'Commissioner',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
         ),
       ),
     );

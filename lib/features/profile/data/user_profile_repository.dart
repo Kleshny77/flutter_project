@@ -64,10 +64,14 @@ class UserProfileRepository {
 
     final firestore = _resolveFirestore();
     if (firestore != null) {
-      await firestore.collection('users').doc(userId).set(
-        profile.toRemoteJson(),
-        SetOptions(merge: true),
-      );
+      try {
+        await firestore.collection('users').doc(userId).set(
+          profile.toRemoteJson(),
+          SetOptions(merge: true),
+        );
+      } on FirebaseException {
+        // Keep local profile working even if Firestore rules are not configured yet.
+      }
     }
   }
 
@@ -86,10 +90,14 @@ class UserProfileRepository {
 
     final firestore = _resolveFirestore();
     if (firestore != null) {
-      await firestore.collection('users').doc(userId).set(
-        <String, Object?>{'email': cleanEmail},
-        SetOptions(merge: true),
-      );
+      try {
+        await firestore.collection('users').doc(userId).set(
+          <String, Object?>{'email': cleanEmail},
+          SetOptions(merge: true),
+        );
+      } on FirebaseException {
+        // Keep local email working even if Firestore rules are not configured yet.
+      }
     }
   }
 

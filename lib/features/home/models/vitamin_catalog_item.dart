@@ -52,21 +52,54 @@ class VitaminCatalogItem {
       return null;
     }
 
+    String? normalizeCondition(String? value) {
+      final normalized = value?.trim();
+      if (normalized == null || normalized.isEmpty) {
+        return null;
+      }
+
+      final lowered = normalized.toLowerCase();
+      if (lowered.contains('до еды')) {
+        return 'before_meal';
+      }
+      if (lowered.contains('после еды')) {
+        return 'after_meal';
+      }
+      if (lowered.contains('во время еды') || lowered.contains('с едой')) {
+        return 'during_meal';
+      }
+      if (lowered.contains('неважно')) {
+        return 'any';
+      }
+
+      return normalized;
+    }
+
     return VitaminCatalogItem(
       id: readString(map['id']) ?? '',
-      code: readString(map['code']),
-      displayName:
-          readString(map['displayName']) ?? readString(map['display_name']),
+      code: readString(map['code']) ?? readString(map['Supplement']),
+      displayName: readString(map['displayName']) ??
+          readString(map['display_name']) ??
+          readString(map['Supplement']) ??
+          readString(map['supplement']) ??
+          readString(map['name']) ??
+          readString(map['title']),
       defaultUnit:
           readString(map['defaultUnit']) ?? readString(map['default_unit']),
       interactionText: readString(map['interactionText']) ??
-          readString(map['interaction_text']),
+          readString(map['interaction_text']) ??
+          readString(map['Interactions']),
       compatibilityText: readString(map['compatibilityText']) ??
-          readString(map['compatibility_text']),
+          readString(map['compatibility_text']) ??
+          readString(map['Compatibility']),
       contraindicationsText: readString(map['contraindicationsText']) ??
-          readString(map['contraindications_text']),
-      defaultCondition: readString(map['defaultCondition']) ??
-          readString(map['default_condition']),
+          readString(map['contraindications_text']) ??
+          readString(map['Contraindications']),
+      defaultCondition: normalizeCondition(
+        readString(map['defaultCondition']) ??
+            readString(map['default_condition']) ??
+            readString(map['Timing']),
+      ),
     );
   }
 }
