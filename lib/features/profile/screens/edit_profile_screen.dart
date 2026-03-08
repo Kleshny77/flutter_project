@@ -229,25 +229,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
         ),
-        IgnorePointer(
-          child: Container(
-            width: 184,
-            height: 184,
-            margin: const EdgeInsets.only(top: -184),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                width: 4,
-                color: const Color(0xFF88A4FF),
-              ),
-              gradient: const LinearGradient(
-                colors: [
-                  Color.fromRGBO(231, 240, 255, 0.82),
-                  Color(0xFF88A4FF),
-                  Color.fromRGBO(180, 210, 255, 0.55),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        Transform.translate(
+          offset: const Offset(0, -184),
+          child: IgnorePointer(
+            child: Container(
+              width: 184,
+              height: 184,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  width: 4,
+                  color: const Color(0xFF88A4FF),
+                ),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color.fromRGBO(231, 240, 255, 0.82),
+                    Color(0xFF88A4FF),
+                    Color.fromRGBO(180, 210, 255, 0.55),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
             ),
           ),

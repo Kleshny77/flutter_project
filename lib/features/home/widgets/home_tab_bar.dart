@@ -110,6 +110,7 @@ class HomeTabBarHost extends StatelessWidget {
       color: Colors.white,
       padding: EdgeInsets.only(bottom: math.max(12, safeBottom)),
       child: Center(
+        heightFactor: 1,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth.isFinite

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
@@ -44,8 +45,10 @@ class _ScheduleTabState extends State<ScheduleTab> {
   @override
   Widget build(BuildContext context) {
     final entries = _entriesForSelectedDate;
+    final floatingButtonBottom = MediaQuery.paddingOf(context).bottom + 72;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         RefreshIndicator(
           color: const Color(0xFF0773F1),
@@ -123,7 +126,7 @@ class _ScheduleTabState extends State<ScheduleTab> {
         if (_hasLoaded && !_hasAnyReminders)
           Positioned(
             right: 30,
-            bottom: widget.bottomInset + 30,
+            bottom: floatingButtonBottom,
             child: _FloatingPlusButton(onTap: widget.onAdd),
           ),
         if (_activeEntry != null)
@@ -848,7 +851,11 @@ class _FloatingPlusButton extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Image.asset('assets/images/home/plus.png', width: 22, height: 22),
+        child: SvgPicture.asset(
+          'assets/images/home/plus.svg',
+          width: 22,
+          height: 22,
+        ),
       ),
     );
   }

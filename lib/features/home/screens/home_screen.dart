@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/app_design.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -52,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final safeTop = MediaQuery.paddingOf(context).top;
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final bottomInset = 56.0 + math.max(12.0, safeBottom);
 
@@ -59,74 +61,72 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.white,
       body: ColoredBox(
         color: Colors.white,
-        child: SafeArea(
-          bottom: false,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Column(
-                  children: [
-                    _HomeTopHeader(
-                      onPlusTap: _showFamilyAccountDialog,
-                      onProfileTap: _showProfileSheet,
-                      avatarBytes: _profile.avatarBytes,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Column(
+                children: [
+                  _HomeTopHeader(
+                    safeTop: safeTop,
+                    onPlusTap: _showFamilyAccountDialog,
+                    onProfileTap: _showProfileSheet,
+                    avatarBytes: _profile.avatarBytes,
+                  ),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedTab.index,
+                      children: [
+                        ScheduleTab(
+                          repository: widget.pharmacyRepository,
+                          onAdd: _openAddVitaminFlow,
+                          bottomInset: bottomInset,
+                        ),
+                        _PharmacyTab(
+                          key: _pharmacyTabKey,
+                          repository: widget.pharmacyRepository,
+                          onAdd: () {
+                            _openAddVitaminFlow();
+                          },
+                          onOpenVitamin: (vitamin) {
+                            _openVitaminDetailsFlow(vitamin);
+                          },
+                          bottomInset: bottomInset,
+                        ),
+                        const _StatsTab(),
+                      ],
                     ),
-                    Expanded(
-                      child: IndexedStack(
-                        index: _selectedTab.index,
-                        children: [
-                          ScheduleTab(
-                            repository: widget.pharmacyRepository,
-                            onAdd: _openAddVitaminFlow,
-                            bottomInset: bottomInset,
-                          ),
-                          _PharmacyTab(
-                            key: _pharmacyTabKey,
-                            repository: widget.pharmacyRepository,
-                            onAdd: () {
-                              _openAddVitaminFlow();
-                            },
-                            onOpenVitamin: (vitamin) {
-                              _openVitaminDetailsFlow(vitamin);
-                            },
-                            bottomInset: bottomInset,
-                          ),
-                          const _StatsTab(),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _BottomNavigationHost(
-                  selectedTab: _selectedTab,
-                  onSelect: (tab) {
-                    if (_onboardingStep != null && tab != HomeTab.pharmacy) {
-                      return;
-                    }
-                    if (tab == _selectedTab) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedTab = tab;
-                    });
-                  },
-                ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _BottomNavigationHost(
+                selectedTab: _selectedTab,
+                onSelect: (tab) {
+                  if (_onboardingStep != null && tab != HomeTab.pharmacy) {
+                    return;
+                  }
+                  if (tab == _selectedTab) {
+                    return;
+                  }
+                  setState(() {
+                    _selectedTab = tab;
+                  });
+                },
               ),
-              if (_onboardingStep != null)
-                HomeOnboardingOverlay(
-                  step: _onboardingStep!,
-                  onClose: _dismissOnboarding,
-                  onNext: _goToNextOnboardingStep,
-                  onPrevious: _goToPreviousOnboardingStep,
-                ),
+            ),
+            if (_onboardingStep != null)
+              HomeOnboardingOverlay(
+                step: _onboardingStep!,
+                onClose: _dismissOnboarding,
+                onNext: _goToNextOnboardingStep,
+                onPrevious: _goToPreviousOnboardingStep,
+              ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -313,6 +313,7 @@ class _BottomNavigationHost extends StatelessWidget {
       color: Colors.white,
       padding: EdgeInsets.only(bottom: math.max(12, safeBottom)),
       child: Center(
+        heightFactor: 1,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth.isFinite
@@ -332,11 +333,13 @@ class _BottomNavigationHost extends StatelessWidget {
 
 class _HomeTopHeader extends StatelessWidget {
   const _HomeTopHeader({
+    required this.safeTop,
     required this.onPlusTap,
     required this.onProfileTap,
     this.avatarBytes,
   });
 
+  final double safeTop;
   final VoidCallback onPlusTap;
   final VoidCallback onProfileTap;
   final Uint8List? avatarBytes;
@@ -344,7 +347,7 @@ class _HomeTopHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 72,
+      height: safeTop + 72,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.96),
         boxShadow: [
@@ -358,7 +361,7 @@ class _HomeTopHeader extends StatelessWidget {
       child: Align(
         alignment: Alignment.topRight,
         child: Padding(
-          padding: const EdgeInsets.only(top: 10, right: 20),
+          padding: EdgeInsets.only(top: safeTop + 10, right: 20),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -500,11 +503,10 @@ class _SmallPlusCircleButton extends StatelessWidget {
           ),
         ),
         alignment: Alignment.center,
-        child: Image.asset(
-          'assets/images/home/plus.png',
+        child: SvgPicture.asset(
+          'assets/images/home/plus.svg',
           width: 18,
           height: 18,
-          fit: BoxFit.contain,
         ),
       ),
     );
@@ -711,8 +713,10 @@ class _PharmacyTabState extends State<_PharmacyTab> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = math.max(0.0, constraints.maxWidth - 48);
+        final floatingButtonBottom = MediaQuery.paddingOf(context).bottom + 72;
 
         return Stack(
+          fit: StackFit.expand,
           children: [
             SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(24, 32, 24, widget.bottomInset + 90),
@@ -736,7 +740,7 @@ class _PharmacyTabState extends State<_PharmacyTab> {
             ),
             Positioned(
               right: 30,
-              bottom: widget.bottomInset + 30,
+              bottom: floatingButtonBottom,
               child: _FloatingPlusButton(onTap: widget.onAdd),
             ),
           ],
@@ -1042,11 +1046,10 @@ class _FloatingPlusButton extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Image.asset(
-          'assets/images/home/plus.png',
+        child: SvgPicture.asset(
+          'assets/images/home/plus.svg',
           width: 22,
           height: 22,
-          fit: BoxFit.contain,
         ),
       ),
     );
