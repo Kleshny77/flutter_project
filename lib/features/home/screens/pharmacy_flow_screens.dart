@@ -599,12 +599,43 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
 
   Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart ? _startDate : (_endDate ?? _startDate);
-    final picked = await showDatePicker(
+    final picked = await showGeneralDialog<DateTime>(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2035),
-      locale: const Locale('ru'),
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (dialogContext, _, __) {
+        return Localizations.override(
+          context: dialogContext,
+          locale: const Locale('ru'),
+          child: Theme(
+            data: Theme.of(dialogContext),
+            child: DatePickerDialog(
+              initialDate: initial,
+              firstDate: DateTime(2025),
+              lastDate: DateTime(2035),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(
+              begin: 0.94,
+              end: 1,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
     if (picked == null) {
       return;
@@ -1766,8 +1797,10 @@ class _NotificationCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Transform.rotate(
-                              angle: expanded ? math.pi / 2 : 0,
+                            AnimatedRotation(
+                              turns: expanded ? 0.25 : 0,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeInOutCubic,
                               child: Image.asset(
                                 'assets/images/pharmacy/chevron_white.png',
                                 width: 20,
@@ -1784,46 +1817,64 @@ class _NotificationCard extends StatelessWidget {
               ),
             ),
           ),
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(30, 14, 30, 20),
-              child: option.editable
-                  ? TextField(
-                      controller: TextEditingController(text: value)
-                        ..selection = TextSelection.collapsed(offset: value.length),
-                      maxLines: null,
-                      onChanged: onChanged,
-                      style: const TextStyle(
-                        fontFamily: 'Commissioner',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF3B3B3B),
-                      ),
-                      decoration: InputDecoration(
-                        isCollapsed: true,
-                        hintText: option.placeholder,
-                        hintStyle: const TextStyle(
-                          fontFamily: 'Commissioner',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFA8A8A8),
-                        ),
-                        border: InputBorder.none,
-                      ),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(30, 14, 30, 20),
+                      child: option.editable
+                          ? TextField(
+                              controller: TextEditingController(text: value)
+                                ..selection = TextSelection.collapsed(
+                                  offset: value.length,
+                                ),
+                              maxLines: null,
+                              onChanged: onChanged,
+                              style: const TextStyle(
+                                fontFamily: 'Commissioner',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF3B3B3B),
+                              ),
+                              decoration: InputDecoration(
+                                isCollapsed: true,
+                                hintText: option.placeholder,
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                hintStyle: const TextStyle(
+                                  fontFamily: 'Commissioner',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFA8A8A8),
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            )
+                          : Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                value.trim().isEmpty ? option.placeholder : value,
+                                style: const TextStyle(
+                                  fontFamily: 'Commissioner',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF3B3B3B),
+                                ),
+                              ),
+                            ),
                     )
-                  : Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        value.trim().isEmpty ? option.placeholder : value,
-                        style: const TextStyle(
-                          fontFamily: 'Commissioner',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF3B3B3B),
-                        ),
-                      ),
-                    ),
+                  : const SizedBox.shrink(),
             ),
+          ),
         ],
       ),
     );
