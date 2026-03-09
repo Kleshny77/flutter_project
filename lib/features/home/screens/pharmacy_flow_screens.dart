@@ -1177,6 +1177,16 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final compactLayout = viewportHeight <= 860;
+    final titleFontSize = compactLayout ? 29.0 : 32.5;
+    final headerSpacing = compactLayout ? 18.0 : 24.0;
+    final imageWidth = compactLayout ? 140.0 : 160.0;
+    final imageHeight = compactLayout ? 70.0 : 80.0;
+    final statsSpacing = compactLayout ? 20.0 : 30.0;
+    final cardsSpacing = compactLayout ? 14.0 : 18.0;
+    final buttonSpacing = compactLayout ? 8.0 : 12.0;
+
     return _PharmacyFlowScaffold(
       selectedTab: HomeTab.pharmacy,
       onTabRequested: _handleTabTap,
@@ -1210,7 +1220,12 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 160),
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    compactLayout ? 8 : 12,
+                    24,
+                    compactLayout ? 132 : 160,
+                  ),
                   child: Column(
                     children: [
                       Row(
@@ -1218,8 +1233,8 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           GestureDetector(
                             onTap: () => Navigator.of(context).pop(),
                             child: Container(
-                              width: 44,
-                              height: 44,
+                              width: compactLayout ? 42 : 44,
+                              height: compactLayout ? 42 : 44,
                               decoration: const BoxDecoration(
                                 color: Colors.white,
                                 shape: BoxShape.circle,
@@ -1243,9 +1258,9 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           Expanded(
                             child: Text(
                               _reminder!.title,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Commissioner',
-                                fontSize: 32.5,
+                                fontSize: titleFontSize,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF3B3B3B),
                               ),
@@ -1255,38 +1270,42 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           const SizedBox(width: 60),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: headerSpacing),
                       Image.asset(
                         'assets/images/pharmacy/capsule2d.png',
-                        width: 160,
-                        height: 80,
+                        width: imageWidth,
+                        height: imageHeight,
                         fit: BoxFit.contain,
                       ),
-                      const SizedBox(height: 30),
+                      SizedBox(height: statsSpacing),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _StatCard(
+                            compact: compactLayout,
                             subtitle: PharmacyFlowLogic.formLabel(_reminder!.form),
                             child: Text(
                               PharmacyFlowLogic.doseAmount(_reminder!.dose),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Commissioner',
-                                fontSize: 43,
+                                fontSize: compactLayout ? 38 : 43,
                                 fontWeight: FontWeight.w700,
                                 color: AppPalette.blueMain,
                               ),
                             ),
                           ),
                           _StatCard(
+                            compact: compactLayout,
                             subtitle: PharmacyFlowLogic.frequencyLabel(_reminder!),
                             child: Image.asset(
                               'assets/images/pharmacy/calendar.png',
-                              width: 32,
-                              height: 35,
+                              width: compactLayout ? 30 : 32,
+                              height: compactLayout ? 33 : 35,
                             ),
                           ),
                           _StatCard(
+                            compact: compactLayout,
                             subtitle: PharmacyFlowLogic.conditionLabel(
                               _reminder!.condition,
                             ),
@@ -1294,23 +1313,26 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                               PharmacyFlowLogic.conditionIcon(_reminder!.condition),
                               width: PharmacyFlowLogic.conditionIconSize(
                                 _reminder!.condition,
-                              ).width,
+                              ).width *
+                                  (compactLayout ? 0.92 : 1),
                               height: PharmacyFlowLogic.conditionIconSize(
                                 _reminder!.condition,
-                              ).height,
+                              ).height *
+                                  (compactLayout ? 0.92 : 1),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      SizedBox(height: compactLayout ? 18 : 24),
                       ...PharmacyFlowLogic.infoOptions(_reminder!).map((option) {
                         final expanded = _expandedIds.contains(option.id);
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 18),
+                          padding: EdgeInsets.only(bottom: cardsSpacing),
                           child: _DetailsInfoCard(
                             option: option,
                             expanded: expanded,
                             selected: _selectedIds.contains(option.id),
+                            compact: compactLayout,
                             onToggle: () => setState(() {
                               if (expanded) {
                                 _expandedIds.remove(option.id);
@@ -1321,16 +1343,18 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 12),
+                      SizedBox(height: compactLayout ? 8 : 12),
                       SizedBox(
                         width: 174,
                         child: _OutlineActionButton(
                           label: 'Настроить',
                           onPressed: _openEditFlow,
                           textColor: Colors.black,
+                          height: compactLayout ? 48 : 52,
+                          fontSize: compactLayout ? 18 : 20,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: buttonSpacing),
                       SizedBox(
                         width: 174,
                         child: _OutlineActionButton(
@@ -1338,6 +1362,8 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           onPressed: _deleteReminder,
                           textColor: const Color(0xFFEA3E3E),
                           loading: _deleting,
+                          height: compactLayout ? 48 : 52,
+                          fontSize: compactLayout ? 18 : 20,
                         ),
                       ),
                     ],
@@ -2341,17 +2367,21 @@ class _OutlineActionButton extends StatelessWidget {
     required this.onPressed,
     this.textColor = AppPalette.blueMain,
     this.loading = false,
+    this.height = 52,
+    this.fontSize = 20,
   });
 
   final String label;
   final VoidCallback onPressed;
   final Color textColor;
   final bool loading;
+  final double height;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 52,
+      height: height,
       child: OutlinedButton(
         onPressed: loading ? null : onPressed,
         style: OutlinedButton.styleFrom(
@@ -2376,7 +2406,7 @@ class _OutlineActionButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontFamily: 'Commissioner',
-                  fontSize: 20,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w700,
                   color: textColor,
                 ),
@@ -2450,20 +2480,25 @@ class _PrimaryGradientButton extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.child, required this.subtitle});
+  const _StatCard({
+    required this.child,
+    required this.subtitle,
+    this.compact = false,
+  });
 
   final Widget child;
   final String subtitle;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 90,
+      width: compact ? 84 : 90,
       child: Column(
         children: [
           Container(
-            width: 74.7,
-            height: 69,
+            width: compact ? 68 : 74.7,
+            height: compact ? 63 : 69,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -2479,12 +2514,12 @@ class _StatCard extends StatelessWidget {
             alignment: Alignment.center,
             child: child,
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 8 : 10),
           Text(
             subtitle,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Commissioner',
-              fontSize: 12,
+              fontSize: compact ? 11 : 12,
               fontWeight: FontWeight.w500,
               color: Color(0xFF3B3B3B),
             ),
@@ -2501,12 +2536,14 @@ class _DetailsInfoCard extends StatelessWidget {
     required this.option,
     required this.expanded,
     required this.selected,
+    this.compact = false,
     required this.onToggle,
   });
 
   final PharmacyInfoOption option;
   final bool expanded;
   final bool selected;
+  final bool compact;
   final VoidCallback onToggle;
 
   @override
@@ -2527,14 +2564,19 @@ class _DetailsInfoCard extends StatelessWidget {
       child: Column(
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
+            constraints: BoxConstraints(minHeight: compact ? 44 : 48),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 18, 8),
+              padding: EdgeInsets.fromLTRB(
+                10,
+                compact ? 6 : 8,
+                18,
+                compact ? 6 : 8,
+              ),
               child: Row(
                 children: [
                   Container(
-                    width: 33,
-                    height: 33,
+                    width: compact ? 30 : 33,
+                    height: compact ? 30 : 33,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -2549,7 +2591,7 @@ class _DetailsInfoCard extends StatelessWidget {
                           )
                         : null,
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: compact ? 12 : 14),
                   Expanded(
                     child: GestureDetector(
                       onTap: onToggle,
@@ -2563,17 +2605,19 @@ class _DetailsInfoCard extends StatelessWidget {
                                 option.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'Commissioner',
-                                  fontSize: 18,
+                                  fontSize: compact ? 17 : 18,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF3B3B3B),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Transform.rotate(
-                              angle: expanded ? math.pi / 2 : 0,
+                            AnimatedRotation(
+                              turns: expanded ? 0.25 : 0,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeInOutCubic,
                               child: Image.asset(
                                 'assets/images/pharmacy/chevron_white.png',
                                 width: 20,
@@ -2590,22 +2634,35 @@ class _DetailsInfoCard extends StatelessWidget {
               ),
             ),
           ),
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(30, 14, 30, 20),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  option.text,
-                  style: const TextStyle(
-                    fontFamily: 'Commissioner',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF3B3B3B),
-                  ),
-                ),
-              ),
+          ClipRect(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: expanded
+                  ? Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        30,
+                        compact ? 10 : 14,
+                        30,
+                        compact ? 16 : 20,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          option.text,
+                          style: TextStyle(
+                            fontFamily: 'Commissioner',
+                            fontSize: compact ? 15 : 16,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF3B3B3B),
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
+          ),
         ],
       ),
     );
