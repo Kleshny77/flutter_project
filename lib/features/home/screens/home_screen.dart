@@ -36,6 +36,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<ScheduleTabState> _scheduleTabKey =
+      GlobalKey<ScheduleTabState>();
   final GlobalKey<_PharmacyTabState> _pharmacyTabKey =
       GlobalKey<_PharmacyTabState>();
   final UserProfileRepository _profileRepository = UserProfileRepository();
@@ -77,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       index: _selectedTab.index,
                       children: [
                         ScheduleTab(
+                          key: _scheduleTabKey,
                           repository: widget.pharmacyRepository,
                           onAdd: _openAddVitaminFlow,
                           bottomInset: bottomInset,
@@ -143,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute<void>(
         builder: (context) => AddVitaminScreen(
           repository: widget.pharmacyRepository,
-          onFlowCompleted: _reloadPharmacy,
+          onFlowCompleted: _reloadHomeData,
           onTabRequested: _handleTabRequestedFromFlow,
         ),
       ),
@@ -156,14 +159,15 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => VitaminDetailsScreen(
           repository: widget.pharmacyRepository,
           reminderId: vitamin.id,
-          onFlowCompleted: _reloadPharmacy,
+          onFlowCompleted: _reloadHomeData,
           onTabRequested: _handleTabRequestedFromFlow,
         ),
       ),
     );
   }
 
-  void _reloadPharmacy() {
+  void _reloadHomeData() {
+    _scheduleTabKey.currentState?.reload();
     _pharmacyTabKey.currentState?.reload();
   }
 

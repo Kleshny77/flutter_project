@@ -22,30 +22,48 @@ class ScheduleTab extends StatefulWidget {
   final double bottomInset;
 
   @override
-  State<ScheduleTab> createState() => _ScheduleTabState();
+  State<ScheduleTab> createState() => ScheduleTabState();
 }
 
-class _ScheduleTabState extends State<ScheduleTab> {
+class ScheduleTabState extends State<ScheduleTab> {
+  static const double _calendarCellWidth = 72;
+  static const double _calendarCellHeight = 112;
+  static const double _calendarCellGap = 14;
+  static const double _calendarHorizontalPadding = 16;
+
   final ReminderCompletionStorage _completionStorage = ReminderCompletionStorage();
+  final ScrollController _calendarScrollController = ScrollController();
 
   DateTime _selectedDate = _normalizeDate(DateTime.now());
   List<PharmacyReminder> _reminders = const <PharmacyReminder>[];
   Set<String> _takenIds = const <String>{};
-  _ScheduleEntry? _activeEntry;
   bool _hasLoaded = false;
-  bool _actionInProgress = false;
   bool _hasAnyReminders = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerSelectedDate(animated: false);
+    });
+  }
+
+  void reload() {
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _calendarScrollController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final entries = _entriesForSelectedDate;
     final floatingButtonBottom = MediaQuery.paddingOf(context).bottom + 72;
+    final screenWidth = MediaQuery.sizeOf(context).width;
 
     return Stack(
       fit: StackFit.expand,
@@ -55,70 +73,88 @@ class _ScheduleTabState extends State<ScheduleTab> {
           onRefresh: _load,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(24, 32, 24, widget.bottomInset + 84),
+            padding: EdgeInsets.only(bottom: widget.bottomInset + 84),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Center(
-                  child: Text(
-                    'Расписание',
-                    style: TextStyle(
-                      fontFamily: 'Commissioner',
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF3B3B3B),
-                      height: 1,
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 32, 24, 0),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Расписание',
+                      style: TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 34,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF3B3B3B),
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  height: 113,
+                  width: screenWidth,
+                  height: _calendarCellHeight + 12,
                   child: ListView.separated(
+                    controller: _calendarScrollController,
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.fromLTRB(
+                      _calendarHorizontalPadding,
+                      6,
+                      _calendarHorizontalPadding,
+                      6,
+                    ),
                     itemBuilder: (context, index) {
                       final date = _monthDays[index];
                       final isSelected = _isSameDay(date, _selectedDate);
                       return _DateCell(
+                        width: _calendarCellWidth,
                         date: date,
                         isSelected: isSelected,
                         onTap: () {
                           setState(() {
                             _selectedDate = date;
                           });
+                          _centerSelectedDate(index: index);
                         },
                       );
                     },
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: _calendarCellGap),
                     itemCount: _monthDays.length,
                   ),
                 ),
-                if (!_hasLoaded) const _ScheduleLoadingState(),
-                if (_hasLoaded && entries.isEmpty)
-                  _hasAnyReminders
-                      ? const _ScheduleEmptyDayState()
-                      : const _ScheduleEmptyState(),
-                if (_hasLoaded && entries.isNotEmpty)
-                  ..._ScheduleDayPart.values.map((part) {
-                    final grouped = entries.where((entry) => entry.dayPart == part).toList();
-                    if (grouped.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: _DayPartSection(
-                        part: part,
-                        entries: grouped,
-                        onToggle: _toggleTaken,
-                        onLongPress: (entry) {
-                          setState(() {
-                            _activeEntry = entry;
-                          });
-                        },
-                      ),
-                    );
-                  }),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!_hasLoaded) const _ScheduleLoadingState(),
+                      if (_hasLoaded && entries.isEmpty)
+                        _hasAnyReminders
+                            ? const _ScheduleEmptyDayState()
+                            : const _ScheduleEmptyState(),
+                      if (_hasLoaded && entries.isNotEmpty)
+                        ..._ScheduleDayPart.values.map((part) {
+                          final grouped =
+                              entries.where((entry) => entry.dayPart == part).toList();
+                          if (grouped.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: _DayPartSection(
+                              part: part,
+                              entries: grouped,
+                              onToggle: _toggleTaken,
+                              onLongPress: _showReminderActions,
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -128,25 +164,6 @@ class _ScheduleTabState extends State<ScheduleTab> {
             right: 30,
             bottom: floatingButtonBottom,
             child: _FloatingPlusButton(onTap: widget.onAdd),
-          ),
-        if (_activeEntry != null)
-          _ReminderActionOverlay(
-            entry: _activeEntry!,
-            isSubmitting: _actionInProgress,
-            onDismiss: () {
-              if (_actionInProgress) {
-                return;
-              }
-              setState(() {
-                _activeEntry = null;
-              });
-            },
-            onPrimaryAction: () => _applyAction(
-              _activeEntry!.isTaken ? _ScheduleAction.unmarkTaken : _ScheduleAction.markTaken,
-              _activeEntry!,
-            ),
-            onSnooze15: () => _applyAction(_ScheduleAction.snooze15, _activeEntry!),
-            onSnooze60: () => _applyAction(_ScheduleAction.snooze60, _activeEntry!),
           ),
       ],
     );
@@ -196,17 +213,27 @@ class _ScheduleTabState extends State<ScheduleTab> {
     }
     setState(() {
       _takenIds = updated;
-      if (_activeEntry?.id == entry.id) {
-        _activeEntry = entry.copyWith(isTaken: updated.contains(entry.id));
-      }
     });
   }
 
-  Future<void> _applyAction(_ScheduleAction action, _ScheduleEntry entry) async {
-    setState(() {
-      _actionInProgress = true;
-    });
+  Future<void> _showReminderActions(_ScheduleEntry entry) async {
+    await showGeneralDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 120),
+      pageBuilder: (dialogContext, _, __) {
+        return _ReminderActionOverlay(
+          entry: entry,
+          onAction: (action) => _applyAction(action, entry),
+        );
+      },
+    );
+  }
 
+  Future<bool> _applyAction(_ScheduleAction action, _ScheduleEntry entry) async {
     try {
       switch (action) {
         case _ScheduleAction.markTaken:
@@ -222,22 +249,13 @@ class _ScheduleTabState extends State<ScheduleTab> {
       }
 
       if (!mounted) {
-        return;
+        return false;
       }
-
-      setState(() {
-        _actionInProgress = false;
-        _activeEntry = null;
-      });
+      return true;
     } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
-
-      setState(() {
-        _actionInProgress = false;
-        _activeEntry = null;
-      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -247,6 +265,7 @@ class _ScheduleTabState extends State<ScheduleTab> {
           ),
         ),
       );
+      return false;
     }
   }
 
@@ -294,6 +313,46 @@ class _ScheduleTabState extends State<ScheduleTab> {
       monthEnd.day,
       (index) => DateTime(monthStart.year, monthStart.month, index + 1),
     );
+  }
+
+  void _centerSelectedDate({int? index, bool animated = true}) {
+    if (!_calendarScrollController.hasClients) {
+      return;
+    }
+
+    final monthDays = _monthDays;
+    if (monthDays.isEmpty) {
+      return;
+    }
+
+    final targetIndex =
+        index ?? monthDays.indexWhere((date) => _isSameDay(date, _selectedDate));
+    if (targetIndex < 0) {
+      return;
+    }
+
+    final viewportWidth = _calendarScrollController.position.viewportDimension;
+    final itemExtent = _calendarCellWidth + _calendarCellGap;
+    final targetOffset =
+        _calendarHorizontalPadding +
+        (targetIndex * itemExtent) +
+        (_calendarCellWidth / 2) -
+        (viewportWidth / 2);
+    final clampedOffset = targetOffset.clamp(
+      0.0,
+      _calendarScrollController.position.maxScrollExtent,
+    );
+
+    if (animated) {
+      _calendarScrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+
+    _calendarScrollController.jumpTo(clampedOffset);
   }
 
   List<_ScheduleEntry> get _entriesForSelectedDate {
@@ -464,11 +523,13 @@ class _ScheduleTabState extends State<ScheduleTab> {
 
 class _DateCell extends StatelessWidget {
   const _DateCell({
+    required this.width,
     required this.date,
     required this.isSelected,
     required this.onTap,
   });
 
+  final double width;
   final DateTime date;
   final bool isSelected;
   final VoidCallback onTap;
@@ -479,8 +540,8 @@ class _DateCell extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 69,
-        height: 101,
+        width: width,
+        height: ScheduleTabState._calendarCellHeight,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           gradient: isSelected
@@ -500,7 +561,7 @@ class _DateCell extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 20),
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -508,7 +569,7 @@ class _DateCell extends StatelessWidget {
                 _weekdayLabel(date.weekday),
                 style: const TextStyle(
                   fontFamily: 'Commissioner',
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Colors.black,
                 ),
@@ -519,7 +580,7 @@ class _DateCell extends StatelessWidget {
                   '${date.day}',
                   style: TextStyle(
                     fontFamily: 'Commissioner',
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: isSelected ? Colors.white : Colors.black,
                   ),
@@ -861,150 +922,280 @@ class _FloatingPlusButton extends StatelessWidget {
   }
 }
 
-class _ReminderActionOverlay extends StatelessWidget {
+class _ReminderActionOverlay extends StatefulWidget {
   const _ReminderActionOverlay({
     required this.entry,
-    required this.isSubmitting,
-    required this.onDismiss,
-    required this.onPrimaryAction,
-    required this.onSnooze15,
-    required this.onSnooze60,
+    required this.onAction,
   });
 
   final _ScheduleEntry entry;
-  final bool isSubmitting;
-  final VoidCallback onDismiss;
-  final VoidCallback onPrimaryAction;
-  final VoidCallback onSnooze15;
-  final VoidCallback onSnooze60;
+  final Future<bool> Function(_ScheduleAction action) onAction;
+
+  @override
+  State<_ReminderActionOverlay> createState() => _ReminderActionOverlayState();
+}
+
+class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
+  bool _isSubmitting = false;
+  bool _isVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isVisible = true;
+      });
+    });
+  }
+
+  void _dismiss() {
+    if (_isSubmitting) {
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handleAction(_ScheduleAction action) async {
+    if (_isSubmitting) {
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+    });
+    final success = await widget.onAction(action);
+    if (!mounted) {
+      return;
+    }
+    if (success) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _isSubmitting = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.35),
-        child: InkWell(
-          onTap: onDismiss,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    onTap: () {},
-                    child: Container(
-                      width: 340,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Image.asset(
-                                'assets/images/schedule/capsule.png',
-                                width: 36,
-                                height: 40,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  entry.vitaminName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: 'Commissioner',
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black,
-                                  ),
+    final entry = widget.entry;
+
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismiss,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                opacity: _isVisible ? 1 : 0,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.38),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: () {},
+                        child: AnimatedSlide(
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          offset: _isVisible ? Offset.zero : const Offset(0, 0.05),
+                          child: AnimatedScale(
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                            scale: _isVisible ? 1 : 0.96,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _isVisible ? 1 : 0,
+                              child: Container(
+                                width: 340,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 16,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _InfoBlock(title: 'Дозировка', text: entry.doseText),
-                          const SizedBox(height: 10),
-                          _InfoBlock(title: 'Условия приема', text: entry.conditionText),
-                          const SizedBox(height: 10),
-                          _InfoBlock(title: 'Взаимодействие', text: entry.interactionText),
-                          const SizedBox(height: 22),
-                          Center(
-                            child: SizedBox(
-                              width: 193,
-                              height: 52,
-                              child: DecoratedBox(
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFA6C4DD), Color(0xFF1F7CF4)],
-                                    begin: Alignment.centerRight,
-                                    end: Alignment.centerLeft,
-                                  ),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: isSubmitting ? null : onPrimaryAction,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    disabledBackgroundColor: Colors.transparent,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(100),
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.25),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
                                     ),
-                                  ),
-                                  child: isSubmitting
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          entry.isTaken ? 'Снять прием' : 'Отметить прием',
-                                          style: const TextStyle(
-                                            fontFamily: 'Commissioner',
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Image.asset(
+                                          'assets/images/schedule/capsule.png',
+                                          width: 36,
+                                          height: 40,
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Text(
+                                            entry.vitaminName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontFamily: 'Commissioner',
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black,
+                                            ),
                                           ),
                                         ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    _InfoBlock(title: 'Дозировка', text: entry.doseText),
+                                    const SizedBox(height: 10),
+                                    _InfoBlock(
+                                      title: 'Условия приема',
+                                      text: entry.conditionText,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _InfoBlock(
+                                      title: 'Взаимодействие',
+                                      text: entry.interactionText,
+                                    ),
+                                    const SizedBox(height: 22),
+                                    Center(
+                                      child: _PrimaryOverlayButton(
+                                        title: entry.isTaken
+                                            ? 'Снять прием'
+                                            : 'Отметить прием',
+                                        loading: _isSubmitting,
+                                        onTap: () => _handleAction(
+                                          entry.isTaken
+                                              ? _ScheduleAction.unmarkTaken
+                                              : _ScheduleAction.markTaken,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
-                        ],
+                        ),
+                      ),
+                      if (!entry.isTaken) ...[
+                        const SizedBox(height: 16),
+                        AnimatedSlide(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeOutCubic,
+                          offset: _isVisible ? Offset.zero : const Offset(0, 0.07),
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 220),
+                            opacity: _isVisible ? 1 : 0,
+                            child: _SecondaryOverlayButton(
+                              title: 'Отложить на 15 мин',
+                              enabled: !_isSubmitting,
+                              onTap: () => _handleAction(_ScheduleAction.snooze15),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        AnimatedSlide(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                          offset: _isVisible ? Offset.zero : const Offset(0, 0.08),
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 240),
+                            opacity: _isVisible ? 1 : 0,
+                            child: _SecondaryOverlayButton(
+                              title: 'Отложить на 1 ч',
+                              enabled: !_isSubmitting,
+                              onTap: () => _handleAction(_ScheduleAction.snooze60),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrimaryOverlayButton extends StatelessWidget {
+  const _PrimaryOverlayButton({
+    required this.title,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final String title;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(100);
+
+    return SizedBox(
+      width: 238,
+      height: 56,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: borderRadius,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFA6C4DD), Color(0xFF1F7CF4)],
+              begin: Alignment.centerRight,
+              end: Alignment.centerLeft,
+            ),
+            borderRadius: borderRadius,
+          ),
+          child: InkWell(
+            onTap: loading ? null : onTap,
+            borderRadius: borderRadius,
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
                       ),
                     ),
-                  ),
-                  if (!entry.isTaken) ...[
-                    const SizedBox(height: 16),
-                    _SecondaryOverlayButton(
-                      title: 'Отложить на 15 мин',
-                      enabled: !isSubmitting,
-                      onTap: onSnooze15,
-                    ),
-                    const SizedBox(height: 10),
-                    _SecondaryOverlayButton(
-                      title: 'Отложить на 1 ч',
-                      enabled: !isSubmitting,
-                      onTap: onSnooze60,
-                    ),
-                  ],
-                ],
-              ),
             ),
           ),
         ),
@@ -1027,8 +1218,8 @@ class _SecondaryOverlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 174,
-      height: 40,
+      width: 220,
+      height: 54,
       child: OutlinedButton(
         onPressed: enabled ? onTap : null,
         style: OutlinedButton.styleFrom(
@@ -1040,10 +1231,13 @@ class _SecondaryOverlayButton extends StatelessWidget {
         ),
         child: Text(
           title,
+          textAlign: TextAlign.center,
+          maxLines: 2,
           style: const TextStyle(
             fontFamily: 'Commissioner',
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w500,
+            height: 1.1,
             color: Color(0xFF0773F1),
           ),
         ),
@@ -1165,7 +1359,7 @@ class _ScheduleEntry {
   final bool isTaken;
 
   _ScheduleDayPart get dayPart {
-    final totalMinutes = _ScheduleTabState._minutes(time);
+    final totalMinutes = ScheduleTabState._minutes(time);
     if (totalMinutes <= 240) {
       return _ScheduleDayPart.night;
     }

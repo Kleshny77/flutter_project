@@ -1180,12 +1180,14 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final compactLayout = viewportHeight <= 860;
     final titleFontSize = compactLayout ? 29.0 : 32.5;
-    final headerSpacing = compactLayout ? 18.0 : 24.0;
+    final topPadding = compactLayout ? 22.0 : 18.0;
+    final headerSpacing = compactLayout ? 14.0 : 20.0;
     final imageWidth = compactLayout ? 140.0 : 160.0;
     final imageHeight = compactLayout ? 70.0 : 80.0;
-    final statsSpacing = compactLayout ? 20.0 : 30.0;
-    final cardsSpacing = compactLayout ? 14.0 : 18.0;
-    final buttonSpacing = compactLayout ? 8.0 : 12.0;
+    final statsSpacing = compactLayout ? 16.0 : 26.0;
+    final cardsSpacing = compactLayout ? 12.0 : 16.0;
+    final preButtonsSpacing = compactLayout ? 6.0 : 10.0;
+    final buttonSpacing = compactLayout ? 6.0 : 10.0;
 
     return _PharmacyFlowScaffold(
       selectedTab: HomeTab.pharmacy,
@@ -1222,9 +1224,9 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
               : SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     24,
-                    compactLayout ? 8 : 12,
+                    topPadding,
                     24,
-                    compactLayout ? 132 : 160,
+                    compactLayout ? 126 : 154,
                   ),
                   child: Column(
                     children: [
@@ -1323,7 +1325,7 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: compactLayout ? 18 : 24),
+                      SizedBox(height: compactLayout ? 16 : 22),
                       ...PharmacyFlowLogic.infoOptions(_reminder!).map((option) {
                         final expanded = _expandedIds.contains(option.id);
                         return Padding(
@@ -1343,7 +1345,7 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
                           ),
                         );
                       }),
-                      SizedBox(height: compactLayout ? 8 : 12),
+                      SizedBox(height: preButtonsSpacing),
                       SizedBox(
                         width: 174,
                         child: _OutlineActionButton(

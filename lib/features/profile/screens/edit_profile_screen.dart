@@ -63,7 +63,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final compactLayout = viewportHeight <= 860;
+    const contentWidth = 320.0;
+    final topSpacing = compactLayout ? 6.0 : 10.0;
+    final sectionSpacing = compactLayout ? 18.0 : 24.0;
+    final fieldSpacing = compactLayout ? 14.0 : 18.0;
+    final primarySpacing = compactLayout ? 20.0 : 28.0;
+    final logoutSpacing = compactLayout ? 18.0 : 26.0;
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -81,46 +91,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 )
               else
                 SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 30),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    compactLayout ? 10 : 12,
+                    20,
+                    compactLayout ? 20 : 30,
+                  ),
                   child: Column(
                     children: [
                       Align(
                         alignment: Alignment.centerLeft,
                         child: _ProfileCircleActionButton(
-                          assetPath: 'assets/images/auth/back_button.png',
+                          assetPath: 'assets/images/home/back_button.png',
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      _buildAvatarSection(),
-                      const SizedBox(height: 22),
-                      _ProfileOutlineButton(
-                        label: 'Изменить фотографию',
-                        iconPath: 'assets/images/profile/camera.png',
-                        onTap: _pickAvatar,
-                      ),
-                      const SizedBox(height: 22),
-                      _buildNameCard(),
-                      const SizedBox(height: 14),
-                      _ProfileTextField(
-                        controller: _emailController,
-                        hintText: 'E-mail',
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 14),
-                      _ProfileOutlineButton(
-                        label: 'Сменить пароль',
-                        iconPath: 'assets/images/profile/lock_vitamins.png',
-                        trailingPath: 'assets/images/profile/chevron.png',
-                        onTap: _openPasswordReset,
-                      ),
-                      const SizedBox(height: 22),
+                      SizedBox(height: topSpacing),
+                      _buildAvatarSection(compactLayout),
+                      SizedBox(height: sectionSpacing),
                       SizedBox(
-                        width: 134,
-                        height: 42,
-                        child: ElevatedButton(
+                        width: contentWidth,
+                        child: _ProfileOutlineButton(
+                          label: 'Изменить фотографию',
+                          iconPath: 'assets/images/profile/camera.png',
+                          onTap: _pickAvatar,
+                          compact: compactLayout,
+                        ),
+                      ),
+                      SizedBox(height: sectionSpacing),
+                      _buildNameCard(compactLayout),
+                      SizedBox(height: fieldSpacing),
+                      SizedBox(
+                        width: contentWidth,
+                        child: _ProfileTextField(
+                          controller: _emailController,
+                          hintText: 'E-mail',
+                          keyboardType: TextInputType.emailAddress,
+                          compact: compactLayout,
+                        ),
+                      ),
+                      SizedBox(height: fieldSpacing),
+                      SizedBox(
+                        width: contentWidth,
+                        child: _ProfileOutlineButton(
+                          label: 'Сменить пароль',
+                          iconPath: 'assets/images/profile/lock_vitamins.png',
+                          trailingPath: 'assets/images/profile/chevron.png',
+                          onTap: _openPasswordReset,
+                          compact: compactLayout,
+                        ),
+                      ),
+                      SizedBox(height: primarySpacing),
+                      SizedBox(
+                        width: compactLayout ? 150 : 164,
+                        height: compactLayout ? 54 : 62,
+                        child: FilledButton(
                           onPressed: _hasChanges && !_saving ? _saveProfile : null,
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: _hasChanges
                                 ? const Color(0xFF0E75F2)
                                 : const Color.fromRGBO(105, 105, 105, 0.5),
@@ -131,12 +158,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               0.5,
                             ),
                             foregroundColor: Colors.white,
-                            elevation: _hasChanges ? 10 : 0,
-                            shadowColor: const Color(0xFF0E75F2).withValues(
-                              alpha: 0.3,
-                            ),
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(80.67),
+                              borderRadius: BorderRadius.circular(999),
                             ),
                           ),
                           child: _saving
@@ -152,21 +176,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   'Готово',
                                   style: TextStyle(
                                     fontFamily: 'Commissioner',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _ProfileOutlineButton(
-                        label: 'Выйти из аккаунта',
-                        textColor: Colors.red,
-                        onTap: () {
-                          setState(() {
-                            _showLogoutDialog = true;
-                          });
-                        },
+                      SizedBox(height: logoutSpacing),
+                      SizedBox(
+                        width: contentWidth,
+                        child: _ProfileOutlineButton(
+                          label: 'Выйти из аккаунта',
+                          textColor: const Color(0xFFEA3E3E),
+                          compact: compactLayout,
+                          onTap: () {
+                            setState(() {
+                              _showLogoutDialog = true;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -198,81 +226,80 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildAvatarSection() {
+  Widget _buildAvatarSection(bool compact) {
     final imageProvider = _avatarBytes != null
         ? MemoryImage(_avatarBytes!)
-        : const AssetImage('assets/images/home/profile.png') as ImageProvider;
+        : const AssetImage('assets/images/profile/profile.png') as ImageProvider;
 
-    return Column(
-      children: [
-        Container(
-          width: 184,
-          height: 184,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+    final outerSize = compact ? 168.0 : 196.0;
+    final borderWidth = compact ? 5.0 : 6.0;
+    final padding = compact ? 8.0 : 10.0;
+
+    return Container(
+      width: outerSize,
+      height: outerSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(
+          width: borderWidth,
+          color: const Color(0xFF4567C4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF88A4FF).withValues(alpha: 0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
-          alignment: Alignment.center,
-          child: Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+        ],
+      ),
+      padding: EdgeInsets.all(padding),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image(
+            image: imageProvider,
+            fit: BoxFit.cover,
           ),
         ),
-        Transform.translate(
-          offset: const Offset(0, -184),
-          child: IgnorePointer(
-            child: Container(
-              width: 184,
-              height: 184,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  width: 4,
-                  color: const Color(0xFF88A4FF),
-                ),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color.fromRGBO(231, 240, 255, 0.82),
-                    Color(0xFF88A4FF),
-                    Color.fromRGBO(180, 210, 255, 0.55),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildNameCard() {
+  Widget _buildNameCard(bool compact) {
     return Container(
-      width: 318,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+      width: 320,
+      padding: EdgeInsets.fromLTRB(
+        18,
+        compact ? 14 : 18,
+        18,
+        compact ? 12 : 16,
+      ),
       decoration: _cardDecoration(),
       child: Column(
         children: [
           _ProfileTextField(
             controller: _firstNameController,
             hintText: 'Имя',
-            underline: false,
+            standalone: false,
+            compact: compact,
           ),
           Container(
-            height: 2,
-            margin: const EdgeInsets.only(top: 4, bottom: 10),
+            height: 3,
+            margin: EdgeInsets.only(
+              top: compact ? 8 : 10,
+              bottom: compact ? 8 : 10,
+            ),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -286,7 +313,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ProfileTextField(
             controller: _lastNameController,
             hintText: 'Фамилия',
-            underline: false,
+            standalone: false,
+            compact: compact,
           ),
         ],
       ),
@@ -502,20 +530,25 @@ class _ProfileTextField extends StatelessWidget {
     required this.controller,
     required this.hintText,
     this.keyboardType,
-    this.underline = true,
+    this.standalone = true,
+    this.compact = false,
   });
 
   final TextEditingController controller;
   final String hintText;
   final TextInputType? keyboardType;
-  final bool underline;
+  final bool standalone;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final fontSize = compact ? 22.0 : 26.0;
     return Container(
-      width: 318,
-      height: underline ? 63 : null,
-      decoration: underline
+      width: double.infinity,
+      constraints: standalone
+          ? BoxConstraints(minHeight: compact ? 76 : 92)
+          : BoxConstraints(minHeight: compact ? 44 : 54),
+      decoration: standalone
           ? BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(26),
@@ -533,25 +566,33 @@ class _ProfileTextField extends StatelessWidget {
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
+        cursorColor: const Color(0xFF0773F1),
         style: const TextStyle(
           fontFamily: 'Commissioner',
-          fontSize: 22,
           fontWeight: FontWeight.w700,
           color: Color(0xFF5F5F5F),
-        ),
+        ).copyWith(fontSize: fontSize),
         decoration: InputDecoration(
           hintText: hintText,
+          filled: false,
+          fillColor: Colors.transparent,
           hintStyle: const TextStyle(
             fontFamily: 'Commissioner',
-            fontSize: 22,
             fontWeight: FontWeight.w700,
             color: Color(0xFF5F5F5F),
-          ),
+          ).copyWith(fontSize: fontSize),
           isCollapsed: true,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
-            horizontal: underline ? 18 : 0,
-            vertical: underline ? 18 : 0,
+            horizontal: standalone ? 22 : 4,
+            vertical: standalone
+                ? (compact ? 20 : 24)
+                : (compact ? 2 : 4),
           ),
         ),
       ),
@@ -566,6 +607,7 @@ class _ProfileOutlineButton extends StatelessWidget {
     this.iconPath,
     this.trailingPath,
     this.textColor = const Color(0xFF0773F1),
+    this.compact = false,
   });
 
   final String label;
@@ -573,53 +615,67 @@ class _ProfileOutlineButton extends StatelessWidget {
   final String? iconPath;
   final String? trailingPath;
   final Color textColor;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        width: 318,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: const Color(0xFF88A4FF), width: 1.6),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: Row(
-          children: [
-            if (iconPath != null) ...[
-              Image.asset(iconPath!, width: 24, height: 20, fit: BoxFit.contain),
-              const SizedBox(width: 12),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          height: compact ? 52 : 58,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFF88A4FF), width: 1.6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
             ],
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Commissioner',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (iconPath != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                child: Image.asset(
+                    iconPath!,
+                    width: compact ? 26 : 28,
+                    height: compact ? 22 : 24,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Commissioner',
+                    fontSize: compact ? 15 : 16,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
                 ),
               ),
-            ),
-            if (trailingPath != null)
-              Image.asset(
-                trailingPath!,
-                width: 12,
-                height: 18,
-                fit: BoxFit.contain,
-              ),
-          ],
+              if (trailingPath != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Image.asset(
+                    trailingPath!,
+                    width: compact ? 13 : 14,
+                    height: compact ? 20 : 22,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -641,8 +697,8 @@ class _ProfileCircleActionButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 46,
-        height: 46,
+        width: 54,
+        height: 54,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
@@ -655,7 +711,7 @@ class _ProfileCircleActionButton extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Image.asset(assetPath, width: 22, height: 22),
+        child: Image.asset(assetPath, width: 26, height: 23),
       ),
     );
   }
