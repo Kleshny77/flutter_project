@@ -11,6 +11,7 @@ import 'features/auth/screens/error_screen.dart';
 import 'features/auth/screens/forgot_password_email_screen.dart';
 import 'features/auth/screens/forgot_password_sent_screen.dart';
 import 'features/home/data/home_preferences.dart';
+import 'features/home/data/reminder_notification_service.dart';
 import 'features/profile/data/user_profile_repository.dart';
 import 'home_screen.dart';
 
@@ -143,6 +144,7 @@ class AppRouter {
   }
 
   Future<void> _onSignOut() async {
+    await ReminderNotificationService.instance.cancelAll();
     await _authService.signOut();
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
+import '../data/reminder_content_builder.dart';
 import '../models/pharmacy_reminder.dart';
 import '../models/pharmacy_reminder_input.dart';
 import '../models/weekday.dart';
@@ -15,11 +16,13 @@ class ScheduleTab extends StatefulWidget {
     required this.repository,
     required this.onAdd,
     required this.bottomInset,
+    this.onRemindersChanged,
   });
 
   final PharmacyRepository repository;
   final VoidCallback onAdd;
   final double bottomInset;
+  final Future<void> Function()? onRemindersChanged;
 
   @override
   State<ScheduleTab> createState() => ScheduleTabState();
@@ -31,7 +34,8 @@ class ScheduleTabState extends State<ScheduleTab> {
   static const double _calendarCellGap = 14;
   static const double _calendarHorizontalPadding = 16;
 
-  final ReminderCompletionStorage _completionStorage = ReminderCompletionStorage();
+  final ReminderCompletionStorage _completionStorage =
+      ReminderCompletionStorage();
   final ScrollController _calendarScrollController = ScrollController();
 
   DateTime _selectedDate = _normalizeDate(DateTime.now());
@@ -137,8 +141,9 @@ class ScheduleTabState extends State<ScheduleTab> {
                             : const _ScheduleEmptyState(),
                       if (_hasLoaded && entries.isNotEmpty)
                         ..._ScheduleDayPart.values.map((part) {
-                          final grouped =
-                              entries.where((entry) => entry.dayPart == part).toList();
+                          final grouped = entries
+                              .where((entry) => entry.dayPart == part)
+                              .toList();
                           if (grouped.isEmpty) {
                             return const SizedBox.shrink();
                           }
@@ -233,7 +238,10 @@ class ScheduleTabState extends State<ScheduleTab> {
     );
   }
 
-  Future<bool> _applyAction(_ScheduleAction action, _ScheduleEntry entry) async {
+  Future<bool> _applyAction(
+    _ScheduleAction action,
+    _ScheduleEntry entry,
+  ) async {
     try {
       switch (action) {
         case _ScheduleAction.markTaken:
@@ -291,11 +299,13 @@ class ScheduleTabState extends State<ScheduleTab> {
       includeDose: reminder.notificationPreferences.includeDose,
       includeFrequency: reminder.notificationPreferences.includeFrequency,
       includeInteraction: reminder.notificationPreferences.includeInteraction,
-      includeCompatibility: reminder.notificationPreferences.includeCompatibility,
+      includeCompatibility:
+          reminder.notificationPreferences.includeCompatibility,
       includeCondition: reminder.notificationPreferences.includeCondition,
       includeContraindications:
           reminder.notificationPreferences.includeContraindications,
-      interactionTextOverride: reminder.contentOverrides.interactionTextOverride,
+      interactionTextOverride:
+          reminder.contentOverrides.interactionTextOverride,
       compatibilityTextOverride:
           reminder.contentOverrides.compatibilityTextOverride,
       contraindicationsTextOverride:
@@ -304,6 +314,7 @@ class ScheduleTabState extends State<ScheduleTab> {
 
     await widget.repository.updateReminder(reminder.id, input);
     await _load();
+    await widget.onRemindersChanged?.call();
   }
 
   List<DateTime> get _monthDays {
@@ -326,7 +337,8 @@ class ScheduleTabState extends State<ScheduleTab> {
     }
 
     final targetIndex =
-        index ?? monthDays.indexWhere((date) => _isSameDay(date, _selectedDate));
+        index ??
+        monthDays.indexWhere((date) => _isSameDay(date, _selectedDate));
     if (targetIndex < 0) {
       return;
     }
@@ -366,12 +378,11 @@ class ScheduleTabState extends State<ScheduleTab> {
       }
 
       final times = _normalizedTimes(reminder.schedule.times);
-      final displayName = reminder.catalog?.displayName?.trim().isNotEmpty == true
+      final displayName =
+          reminder.catalog?.displayName?.trim().isNotEmpty == true
           ? reminder.catalog!.displayName!.trim()
           : reminder.title;
-      final conditionText = _resolvedConditionText(reminder);
-      final interactionText = _resolvedInteractionText(reminder);
-      final doseText = _resolvedDoseText(reminder, times.length);
+      final notificationContent = ReminderContentBuilder.build(reminder);
 
       for (var index = 0; index < times.length; index++) {
         final time = times[index];
@@ -385,16 +396,16 @@ class ScheduleTabState extends State<ScheduleTab> {
             intakeType: _ScheduleIntakeType.fromCondition(reminder.condition),
             time: time,
             count: _countFromDose(reminder.dose),
-            doseText: doseText,
-            conditionText: conditionText,
-            interactionText: interactionText,
+            infoSections: notificationContent.sections,
             isTaken: _takenIds.contains(id),
           ),
         );
       }
     }
 
-    entries.sort((left, right) => _minutes(left.time).compareTo(_minutes(right.time)));
+    entries.sort(
+      (left, right) => _minutes(left.time).compareTo(_minutes(right.time)),
+    );
     return entries;
   }
 
@@ -410,42 +421,6 @@ class ScheduleTabState extends State<ScheduleTab> {
 
     final weekday = Weekday.fromDate(selectedDate);
     return reminder.schedule.days.contains(weekday);
-  }
-
-  String _resolvedDoseText(PharmacyReminder reminder, int timesCount) {
-    final dose = (reminder.dose ?? '1 капсула').trim();
-    return '$dose ${_frequencyDescription(timesCount)}';
-  }
-
-  String _resolvedConditionText(PharmacyReminder reminder) {
-    final parts = <String>[
-      switch (reminder.condition?.toLowerCase()) {
-        'before_meal' => 'Принимать до еды.',
-        'during_meal' => 'Принимать во время еды.',
-        'any' => 'Время приема неважно.',
-        _ => 'Принимать после еды.',
-      },
-      if ((reminder.note ?? '').trim().isNotEmpty) reminder.note!.trim(),
-    ];
-    return parts.join(' ').trim();
-  }
-
-  String _resolvedInteractionText(PharmacyReminder reminder) {
-    final values = <String?>[
-      reminder.contentOverrides.interactionTextOverride,
-      reminder.catalog?.interactionText,
-      reminder.contentOverrides.compatibilityTextOverride,
-      reminder.catalog?.compatibilityText,
-      reminder.contentOverrides.contraindicationsTextOverride,
-      reminder.catalog?.contraindicationsText,
-    ];
-    for (final value in values) {
-      final normalized = value?.trim();
-      if (normalized != null && normalized.isNotEmpty) {
-        return normalized;
-      }
-    }
-    return 'Нет данных о взаимодействии.';
   }
 
   List<String> _normalizedTimes(List<String> rawTimes) {
@@ -465,21 +440,9 @@ class ScheduleTabState extends State<ScheduleTab> {
       );
     }
     return normalized.isEmpty
-        ? <String>[_timeString(DateTime.now())]
-        : normalized.toList()..sort((a, b) => _minutes(a).compareTo(_minutes(b)));
-  }
-
-  String _frequencyDescription(int count) {
-    switch (count) {
-      case 1:
-        return '1 раз в день';
-      case 2:
-      case 3:
-      case 4:
-        return '$count раза в день';
-      default:
-        return '$count раз в день';
-    }
+          ? <String>[_timeString(DateTime.now())]
+          : normalized.toList()
+      ..sort((a, b) => _minutes(a).compareTo(_minutes(b)));
   }
 
   int _countFromDose(String? dose) {
@@ -499,7 +462,9 @@ class ScheduleTabState extends State<ScheduleTab> {
   }
 
   static bool _isSameDay(DateTime left, DateTime right) {
-    return left.year == right.year && left.month == right.month && left.day == right.day;
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day;
   }
 
   static String _isoDate(DateTime value) {
@@ -923,10 +888,7 @@ class _FloatingPlusButton extends StatelessWidget {
 }
 
 class _ReminderActionOverlay extends StatefulWidget {
-  const _ReminderActionOverlay({
-    required this.entry,
-    required this.onAction,
-  });
+  const _ReminderActionOverlay({required this.entry, required this.onAction});
 
   final _ScheduleEntry entry;
   final Future<bool> Function(_ScheduleAction action) onAction;
@@ -994,9 +956,7 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 opacity: _isVisible ? 1 : 0,
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.38),
-                ),
+                child: Container(color: Colors.black.withValues(alpha: 0.38)),
               ),
             ),
           ),
@@ -1004,7 +964,10 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
             child: SafeArea(
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -1013,7 +976,9 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                         child: AnimatedSlide(
                           duration: const Duration(milliseconds: 260),
                           curve: Curves.easeOutCubic,
-                          offset: _isVisible ? Offset.zero : const Offset(0, 0.05),
+                          offset: _isVisible
+                              ? Offset.zero
+                              : const Offset(0, 0.05),
                           child: AnimatedScale(
                             duration: const Duration(milliseconds: 260),
                             curve: Curves.easeOutCubic,
@@ -1032,7 +997,9 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.25),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.25,
+                                      ),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
@@ -1065,18 +1032,17 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                                       ],
                                     ),
                                     const SizedBox(height: 14),
-                                    _InfoBlock(title: 'Дозировка', text: entry.doseText),
-                                    const SizedBox(height: 10),
-                                    _InfoBlock(
-                                      title: 'Условия приема',
-                                      text: entry.conditionText,
+                                    ...entry.infoSections.expand(
+                                      (section) => [
+                                        _InfoBlock(
+                                          title: section.title,
+                                          text: section.text,
+                                        ),
+                                        const SizedBox(height: 10),
+                                      ],
                                     ),
-                                    const SizedBox(height: 10),
-                                    _InfoBlock(
-                                      title: 'Взаимодействие',
-                                      text: entry.interactionText,
-                                    ),
-                                    const SizedBox(height: 22),
+                                    if (entry.infoSections.isNotEmpty)
+                                      const SizedBox(height: 12),
                                     Center(
                                       child: _PrimaryOverlayButton(
                                         title: entry.isTaken
@@ -1102,14 +1068,17 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                         AnimatedSlide(
                           duration: const Duration(milliseconds: 280),
                           curve: Curves.easeOutCubic,
-                          offset: _isVisible ? Offset.zero : const Offset(0, 0.07),
+                          offset: _isVisible
+                              ? Offset.zero
+                              : const Offset(0, 0.07),
                           child: AnimatedOpacity(
                             duration: const Duration(milliseconds: 220),
                             opacity: _isVisible ? 1 : 0,
                             child: _SecondaryOverlayButton(
                               title: 'Отложить на 15 мин',
                               enabled: !_isSubmitting,
-                              onTap: () => _handleAction(_ScheduleAction.snooze15),
+                              onTap: () =>
+                                  _handleAction(_ScheduleAction.snooze15),
                             ),
                           ),
                         ),
@@ -1117,14 +1086,17 @@ class _ReminderActionOverlayState extends State<_ReminderActionOverlay> {
                         AnimatedSlide(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeOutCubic,
-                          offset: _isVisible ? Offset.zero : const Offset(0, 0.08),
+                          offset: _isVisible
+                              ? Offset.zero
+                              : const Offset(0, 0.08),
                           child: AnimatedOpacity(
                             duration: const Duration(milliseconds: 240),
                             opacity: _isVisible ? 1 : 0,
                             child: _SecondaryOverlayButton(
                               title: 'Отложить на 1 ч',
                               enabled: !_isSubmitting,
-                              onTap: () => _handleAction(_ScheduleAction.snooze60),
+                              onTap: () =>
+                                  _handleAction(_ScheduleAction.snooze60),
                             ),
                           ),
                         ),
@@ -1225,7 +1197,9 @@ class _SecondaryOverlayButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
           side: const BorderSide(color: Color(0xFF88A4FF), width: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(100),
+          ),
           shadowColor: Colors.black.withValues(alpha: 0.25),
           elevation: 4,
         ),
@@ -1308,7 +1282,11 @@ enum _ScheduleDayPart {
           fit: BoxFit.contain,
         );
       case _ScheduleDayPart.night:
-        return const Icon(Icons.nights_stay_rounded, size: 22, color: Color(0xFF3B3B3B));
+        return const Icon(
+          Icons.nights_stay_rounded,
+          size: 22,
+          color: Color(0xFF3B3B3B),
+        );
     }
   }
 }
@@ -1340,9 +1318,7 @@ class _ScheduleEntry {
     required this.intakeType,
     required this.time,
     required this.count,
-    required this.doseText,
-    required this.conditionText,
-    required this.interactionText,
+    required this.infoSections,
     required this.isTaken,
   });
 
@@ -1353,9 +1329,7 @@ class _ScheduleEntry {
   final _ScheduleIntakeType intakeType;
   final String time;
   final int count;
-  final String doseText;
-  final String conditionText;
-  final String interactionText;
+  final List<ReminderInfoSection> infoSections;
   final bool isTaken;
 
   _ScheduleDayPart get dayPart {
@@ -1381,9 +1355,7 @@ class _ScheduleEntry {
       intakeType: intakeType,
       time: time,
       count: count,
-      doseText: doseText,
-      conditionText: conditionText,
-      interactionText: interactionText,
+      infoSections: infoSections,
       isTaken: isTaken ?? this.isTaken,
     );
   }

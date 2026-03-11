@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
@@ -10,6 +11,7 @@ import '../../profile/models/user_profile.dart';
 import '../../profile/screens/edit_profile_screen.dart';
 import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
+import '../data/reminder_notification_service.dart';
 import '../models/home_tab.dart';
 import '../models/pharmacy_vitamin.dart';
 import 'pharmacy_flow_screens.dart';
@@ -41,8 +43,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<_PharmacyTabState> _pharmacyTabKey =
       GlobalKey<_PharmacyTabState>();
   final UserProfileRepository _profileRepository = UserProfileRepository();
+  final ReminderNotificationService _notificationService =
+      ReminderNotificationService.instance;
   final PostRegistrationOnboardingStorage _onboardingStorage =
       PostRegistrationOnboardingStorage();
+  StreamSubscription<String>? _notificationOpenSubscription;
   HomeTab _selectedTab = HomeTab.pharmacy;
   UserProfile _profile = const UserProfile.empty();
   HomeOnboardingStep? _onboardingStep;
@@ -50,7 +55,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _notificationOpenSubscription = _notificationService.reminderOpenRequests
+        .listen(_handleReminderOpenRequest);
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _notificationOpenSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -83,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           repository: widget.pharmacyRepository,
                           onAdd: _openAddVitaminFlow,
                           bottomInset: bottomInset,
+                          onRemindersChanged: _refreshReminderNotifications,
                         ),
                         _PharmacyTab(
                           key: _pharmacyTabKey,
@@ -169,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _reloadHomeData() {
     _scheduleTabKey.currentState?.reload();
     _pharmacyTabKey.currentState?.reload();
+    unawaited(_refreshReminderNotifications());
   }
 
   void _handleTabRequestedFromFlow(HomeTab tab) {
@@ -238,8 +253,48 @@ class _HomeScreenState extends State<HomeScreen> {
       userId: widget.userId,
       email: widget.userEmail ?? '',
     );
+    await _notificationService.initialize();
+    await _notificationService.requestPermissions();
     await _loadProfile();
+    await _refreshReminderNotifications();
     await _loadOnboardingState();
+    final pendingReminderId = _notificationService.consumePendingReminderId();
+    if (pendingReminderId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        _handleReminderOpenRequest(pendingReminderId);
+      });
+    }
+  }
+
+  Future<void> _refreshReminderNotifications() async {
+    try {
+      final reminders = await widget.pharmacyRepository.fetchReminders();
+      await _notificationService.rescheduleReminders(reminders);
+    } catch (_) {
+      // Не ломаем home-screen, если локальные уведомления не удалось перепланировать.
+    }
+  }
+
+  void _handleReminderOpenRequest(String reminderId) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedTab = HomeTab.pharmacy;
+    });
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => VitaminDetailsScreen(
+          repository: widget.pharmacyRepository,
+          reminderId: reminderId,
+          onFlowCompleted: _reloadHomeData,
+          onTabRequested: _handleTabRequestedFromFlow,
+        ),
+      ),
+    );
   }
 
   Future<void> _loadProfile() async {
@@ -369,7 +424,10 @@ class _HomeTopHeader extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _ProfileCircleButton(onTap: onProfileTap, avatarBytes: avatarBytes),
+              _ProfileCircleButton(
+                onTap: onProfileTap,
+                avatarBytes: avatarBytes,
+              ),
               const SizedBox(width: 12),
               _SmallPlusCircleButton(onTap: onPlusTap),
             ],
