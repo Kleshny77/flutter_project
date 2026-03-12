@@ -11,11 +11,13 @@ import '../../profile/models/user_profile.dart';
 import '../../profile/screens/edit_profile_screen.dart';
 import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
+import '../data/reminder_completion_repository.dart';
 import '../data/reminder_notification_service.dart';
 import '../models/home_tab.dart';
 import '../models/pharmacy_vitamin.dart';
 import 'pharmacy_flow_screens.dart';
 import 'schedule_tab.dart';
+import 'stats_tab.dart';
 import '../widgets/home_onboarding_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       GlobalKey<ScheduleTabState>();
   final GlobalKey<_PharmacyTabState> _pharmacyTabKey =
       GlobalKey<_PharmacyTabState>();
+  final GlobalKey<StatsTabState> _statsTabKey = GlobalKey<StatsTabState>();
   final UserProfileRepository _profileRepository = UserProfileRepository();
   final ReminderNotificationService _notificationService =
       ReminderNotificationService.instance;
@@ -51,6 +54,8 @@ class _HomeScreenState extends State<HomeScreen> {
   HomeTab _selectedTab = HomeTab.pharmacy;
   UserProfile _profile = const UserProfile.empty();
   HomeOnboardingStep? _onboardingStep;
+  late final ReminderCompletionRepository _completionRepository =
+      ReminderCompletionRepository(userId: widget.userId);
 
   @override
   void initState() {
@@ -94,9 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ScheduleTab(
                           key: _scheduleTabKey,
                           repository: widget.pharmacyRepository,
+                          completionRepository: _completionRepository,
                           onAdd: _openAddVitaminFlow,
                           bottomInset: bottomInset,
-                          onRemindersChanged: _refreshReminderNotifications,
+                          onRemindersChanged: _handleScheduleDataChanged,
                         ),
                         _PharmacyTab(
                           key: _pharmacyTabKey,
@@ -109,7 +115,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                           bottomInset: bottomInset,
                         ),
-                        const _StatsTab(),
+                        StatsTab(
+                          key: _statsTabKey,
+                          repository: widget.pharmacyRepository,
+                          completionRepository: _completionRepository,
+                          bottomInset: bottomInset,
+                        ),
                       ],
                     ),
                   ),
@@ -132,6 +143,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   setState(() {
                     _selectedTab = tab;
                   });
+                  if (tab == HomeTab.stats) {
+                    _statsTabKey.currentState?.reload();
+                  }
                 },
               ),
             ),
@@ -183,7 +197,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void _reloadHomeData() {
     _scheduleTabKey.currentState?.reload();
     _pharmacyTabKey.currentState?.reload();
+    _statsTabKey.currentState?.reload();
     unawaited(_refreshReminderNotifications());
+  }
+
+  Future<void> _handleScheduleDataChanged() async {
+    _statsTabKey.currentState?.reload();
+    await _refreshReminderNotifications();
   }
 
   void _handleTabRequestedFromFlow(HomeTab tab) {
@@ -491,52 +511,6 @@ class _ProfileCircleButton extends StatelessWidget {
                   height: imageSize,
                   fit: BoxFit.cover,
                 ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatsTab extends StatelessWidget {
-  const _StatsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/home/statistics_tab.png',
-              width: 72,
-              height: 72,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Статистика',
-              style: TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Скоро здесь появится статистика приёма лекарств.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Colors.black54,
-                height: 1.3,
-              ),
-            ),
-          ],
         ),
       ),
     );

@@ -3,8 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../data/home_preferences.dart';
 import '../data/pharmacy_repository.dart';
+import '../data/reminder_completion_repository.dart';
 import '../data/reminder_content_builder.dart';
 import '../models/pharmacy_reminder.dart';
 import '../models/pharmacy_reminder_input.dart';
@@ -14,12 +14,14 @@ class ScheduleTab extends StatefulWidget {
   const ScheduleTab({
     super.key,
     required this.repository,
+    required this.completionRepository,
     required this.onAdd,
     required this.bottomInset,
     this.onRemindersChanged,
   });
 
   final PharmacyRepository repository;
+  final ReminderCompletionRepository completionRepository;
   final VoidCallback onAdd;
   final double bottomInset;
   final Future<void> Function()? onRemindersChanged;
@@ -34,8 +36,6 @@ class ScheduleTabState extends State<ScheduleTab> {
   static const double _calendarCellGap = 14;
   static const double _calendarHorizontalPadding = 16;
 
-  final ReminderCompletionStorage _completionStorage =
-      ReminderCompletionStorage();
   final ScrollController _calendarScrollController = ScrollController();
 
   DateTime _selectedDate = _normalizeDate(DateTime.now());
@@ -175,7 +175,7 @@ class ScheduleTabState extends State<ScheduleTab> {
   }
 
   Future<void> _load() async {
-    final takenIds = await _completionStorage.load();
+    final takenIds = await widget.completionRepository.loadTakenIds();
 
     try {
       final reminders = await widget.repository.fetchReminders();
@@ -209,16 +209,18 @@ class ScheduleTabState extends State<ScheduleTab> {
     final updated = Set<String>.from(_takenIds);
     if (updated.contains(entry.id)) {
       updated.remove(entry.id);
+      await widget.completionRepository.unmarkTaken(entry.id);
     } else {
       updated.add(entry.id);
+      await widget.completionRepository.markTaken(entry.id);
     }
-    await _completionStorage.save(updated);
     if (!mounted) {
       return;
     }
     setState(() {
       _takenIds = updated;
     });
+    await widget.onRemindersChanged?.call();
   }
 
   Future<void> _showReminderActions(_ScheduleEntry entry) async {
