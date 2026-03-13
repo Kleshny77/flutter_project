@@ -14,6 +14,7 @@ class _AccountCreatedScreenState extends State<AccountCreatedScreen>
   late final AnimationController _entranceController;
   late final Animation<double> _scale;
   late final Animation<double> _opacity;
+  bool _didNavigate = false;
 
   @override
   void initState() {
@@ -30,12 +31,26 @@ class _AccountCreatedScreenState extends State<AccountCreatedScreen>
       curve: Curves.easeOut,
     );
     _entranceController.forward();
+    _scheduleAutoTransition();
   }
 
   @override
   void dispose() {
     _entranceController.dispose();
     super.dispose();
+  }
+
+  Future<void> _scheduleAutoTransition() async {
+    await Future<void>.delayed(const Duration(milliseconds: 1550));
+    _goToHome();
+  }
+
+  void _goToHome() {
+    if (_didNavigate || !mounted) {
+      return;
+    }
+    _didNavigate = true;
+    widget.onGoToHome();
   }
 
   @override
@@ -96,7 +111,7 @@ class _AccountCreatedScreenState extends State<AccountCreatedScreen>
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: widget.onGoToHome,
+                    onPressed: _goToHome,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,

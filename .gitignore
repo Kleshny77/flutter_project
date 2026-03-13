@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Scripts: Firebase service account key (do not commit)
+scripts/serviceAccountKey.json
+*.credentials.json
+.venv/

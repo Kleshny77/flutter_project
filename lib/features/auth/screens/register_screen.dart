@@ -80,8 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!context.mounted) {
         return;
       }
-      router.pop();
-      router.push('/account-created');
+      router.go('/account-created');
     } catch (e) {
       if (!context.mounted) {
         return;
