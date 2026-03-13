@@ -1,158 +1,117 @@
-# flutter_project
+# Трекер витаминов
 
-Flutter-проект с поддержкой iOS, Android и macOS. Реализован флоу авторизации (приветствие, регистрация, вход, восстановление пароля) с бэкендом на **Firebase Authentication**.
+Мобильное приложение — персональный помощник по приёму витаминов: умные напоминания, расписание, рекомендации «с едой / натощак» и каталог популярных добавок. Платформы: **iOS**, **Android**, **macOS**.
 
-## Настройка Firebase
+Подробное описание продукта, проблем и ценностей — в [docs/PROJECT.md](docs/PROJECT.md).
 
-1. Установите **Firebase CLI** (нужен для FlutterFire). Варианты:
-  - Через npm (нужен Node.js): `npm install -g firebase-tools`
-  - Через Homebrew: `brew install firebase-cli`
-2. Войдите в аккаунт Google: `firebase login`
-3. Установите FlutterFire CLI (один раз): `dart pub global activate flutterfire_cli`
-4. В корне проекта выполните настройку Firebase — одним из способов:
-  - В этом же терминале добавьте PATH и сразу запустите (достаточно один раз в сессии):
-  - Или вызовите по полному пути (PATH менять не нужно):
-    ```
-    $HOME/.pub-cache/bin/flutterfire configure
-    ```
-   Чтобы `flutterfire` работал в любом новом терминале, добавьте в `~/.zshrc` строку `export PATH="$PATH":"$HOME/.pub-cache/bin"` и перезапустите терминал. В диалоге выберите проект и платформы (iOS, Android, macOS) — будет создан файл `lib/firebase_options.dart`.
-5. В [Firebase Console](https://console.firebase.google.com) включите **Authentication → Sign-in method → Email/Password**.
+---
 
-**Если при `flutterfire configure` появляется ошибка:**
+## Быстрый старт
 
-- `cannot load such file -- xcodeproj` — установите гем: `sudo gem install xcodeproj`, затем снова `flutterfire configure`.
-- `UnsupportedError not found in macOS` — в проекте уже лежит заглушка `lib/firebase_options.dart` с полной структурой (android, ios, macos). Запустите `flutterfire configure` ещё раз и согласитесь перезаписать файл — он подставит реальные ключи.
+### 1. Требования
 
-После этого приложение можно запускать; без настройки откроется экран с инструкцией.
+- [Flutter](https://docs.flutter.dev/get-started/install) (stable)
+- Для iOS/macOS: Xcode, лицензия принята (`sudo xcodebuild -license`)
+- Для Android: Android Studio или SDK + эмулятор/устройство
 
-## Запуск
+Проверка окружения:
 
-Перейдите в папку проекта и выполните команды **по одной** (не копируйте весь блок целиком):
-
-Список доступных устройств:
-
+```bash
+flutter doctor
 ```
+
+### 2. Клонирование и зависимости
+
+```bash
+git clone https://github.com/Kleshny77/flutter_project.git
+cd flutter_project
+flutter pub get
+```
+
+### 3. Настройка Firebase (обязательно для авторизации и каталога)
+
+1. Установите [Firebase CLI](https://firebase.google.com/docs/cli) (например: `brew install firebase-cli`) и войдите: `firebase login`.
+2. Установите FlutterFire CLI и выполните настройку в корне проекта:
+
+```bash
+dart pub global activate flutterfire_cli
+export PATH="$PATH:$HOME/.pub-cache/bin"
+flutterfire configure
+```
+
+В диалоге выберите проект Firebase и платформы (iOS, Android, macOS). Будет создан `lib/firebase_options.dart`.
+
+3. В [Firebase Console](https://console.firebase.google.com) → ваш проект → **Authentication** → **Sign-in method** → включите **Email/Password**.
+
+Без настройки приложение покажет экран с инструкцией вместо входа.
+
+### 4. Запуск приложения
+
+Узнать доступные устройства:
+
+```bash
 flutter devices
 ```
 
-Запуск на macOS:
+Запуск (выполняйте команды по одной):
 
-```
-flutter run -d macos
-```
+```bash
+# iOS (сначала откройте Simulator)
+flutter run -d ios
+# или, если несколько устройств: flutter run -d "iPhone Air"
 
-Запуск на iOS: сначала откройте приложение Simulator (чтобы симулятор появился в списке), затем укажите **имя или id** устройства из `flutter devices`, например:
-
-```
-flutter run -d "iPhone Air"
-```
-
-Или просто (если симулятор один): `flutter run -d ios` — но если Flutter пишет «no devices matching 'ios'», используйте имя из списка, как выше.
-
-Запуск на Android (нужен эмулятор или устройство):
-
-```
+# Android (эмулятор или устройство по USB)
 flutter run -d android
-```
 
-Сейчас у вас доступны: **macOS** и **Chrome**. Для iOS/Android установите Xcode (симулятор iOS) или Android Studio (эмулятор Android) и при необходимости выполните `flutter doctor`.
-
-## «No supported devices found» для iOS/Android
-
-Flutter показывает только **уже запущенные** симуляторы и эмуляторы. Пока симулятор не запущен, его нет в `flutter devices`, поэтому `flutter run -d ios` пишет, что устройств нет.
-
-**iOS — что сделать по шагам:**
-
-1. Запустите приложение **Симулятор** (Simulator) на Mac (Spotlight: `Simulator` или в Xcode: **Xcode → Open Developer Tool → Simulator**).
-2. Дождитесь загрузки симулятора (появится окно с iPhone).
-3. В терминале снова выполните:
-
-```
-flutter devices
-```
-
-В списке должен появиться iPhone (например, «iPhone 16»).
-4. Затем:
-
-```
-flutter run -d ios
-```
-
-**Какие эмуляторы есть у системы:**
-
-```
-flutter emulators
-```
-
-Оттуда можно запустить эмулятор, например: `flutter emulators --launch <id>`.
-
-## Ошибка «device's data is no longer present» / «Unable to boot device»
-
-Так бывает, когда папка с данными симулятора удалена (очистка диска, обновление Xcode), а запись об устройстве осталась. Нужно удалить эту запись.
-
-Удалить конкретный «битый» симулятор (подставьте свой UUID из сообщения об ошибке):
-
-```
-xcrun simctl delete DDA2842E-3AC1-4AC4-BD4D-3F56FD6E6265
-```
-
-Удалить все недоступные (unavailable) симуляторы:
-
-```
-xcrun simctl delete unavailable
-```
-
-После этого откройте Simulator снова — будут только рабочие устройства.
-
-## Если не запускается (macOS / iOS)
-
-**1. Принять лицензию Xcode** (обязательно, иначе ни macOS, ни iOS не соберутся):
-
-```
-sudo xcodebuild -license
-```
-
-Введите пароль Mac, прокрутите до конца (пробел), введите `agree` и Enter.
-
-**2. После этого запуск на macOS должен заработать:**
-
-```
+# macOS
 flutter run -d macos
-```
 
-**3. Симулятор iOS:** после принятия лицензии симуляторы обычно уже есть в Xcode. Посмотреть список:
-
-```
-xcrun simctl list devices available
-```
-
-Запуск на первом доступном симуляторе:
-
-```
-flutter run -d ios
-```
-
-Если симуляторов нет — откройте **Xcode → Settings → Platforms** и установите нужную версию iOS.
-
-**4. Пока настраиваете — можно запустить в браузере:**
-
-```
+# Браузер (для проверки)
 flutter run -d chrome
 ```
 
-## Android
+---
 
-Нужны Android Studio и эмулятор (AVD): установите [Android Studio](https://developer.android.com/studio), откройте **Tools → Device Manager**, создайте виртуальное устройство. После этого появится в `flutter devices`.
+## Сборка
 
-## Getting Started
+```bash
+flutter build ios
+flutter build macos
+```
 
-This project is a starting point for a Flutter application.
+Дальнейшая подпись и загрузка — через Xcode.
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Реализованные фичи
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Авторизация:** приветствие, регистрация и вход по e-mail/паролю, восстановление пароля (Firebase Auth).
+- **Профиль:** имя, фамилия, e-mail, аватар (Firestore + Storage).
+- **Аптечка:** каталог топ-20 витаминов из Firestore; добавление своего витамина или из каталога (название, вид, доза, когда принимать); редактирование и удаление.
+- **Расписание:** календарь, приёмы по дням, отметки «принято» / «пропущено», локальные уведомления.
+- **Статистика:** месячная статистика по каждому напоминанию.
+- **Онбординг:** подсказки при первом заходе.
+- **Аналитика:** события Firebase (регистрация/вход — успех и ошибка).
+
+---
+
+## Качество кода и тесты
+
+- **Линтер и формат:** `flutter_lints` в `pubspec.yaml` и `analysis_options.yaml`, код форматируется через `dart format`. Проверка: `flutter analyze`.
+- **Тесты:** unit-тесты доменной логики авторизации, widget-тесты экранов и сценариев входа/регистрации. Запуск: `flutter test`.
+- **Архитектура:** слоистая (Domain / Data / Presentation), зависимости собираются в `main.dart`, UI зависит от абстракций (например, `AuthRepository`).
+
+---
+
+## Частые проблемы
+
+- **Нет устройств для iOS/Android** — запустите симулятор или эмулятор, затем снова `flutter devices`.
+- **Ошибка симулятора (device's data is no longer present)** — удалите битый симулятор: `xcrun simctl delete unavailable`.
+
+---
+
+## Документация Flutter
+
+- [Документация Flutter](https://docs.flutter.dev/)
+- [Lab: первое приложение](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook](https://docs.flutter.dev/cookbook)

@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter_project/core/app_analytics.dart'
+    show AppAnalyticsInterface;
+import 'package:flutter_project/domain/entities/auth_user.dart';
+import 'package:flutter_project/domain/repositories/auth_repository.dart';
+import 'package:flutter_project/features/auth/screens/login_screen.dart';
+import 'package:flutter_project/features/auth/screens/register_screen.dart';
 import 'package:flutter_project/features/auth/screens/welcome_screen.dart';
 import 'package:flutter_project/features/home/data/pharmacy_repository.dart';
 import 'package:flutter_project/features/home/models/home_tab.dart';
@@ -11,8 +18,8 @@ import 'package:flutter_project/features/home/models/pharmacy_vitamin.dart';
 import 'package:flutter_project/features/home/models/vitamin_draft.dart';
 import 'package:flutter_project/features/home/models/vitamin_catalog_item.dart';
 import 'package:flutter_project/features/home/models/weekday.dart';
+import 'package:flutter_project/features/home/screens/home_screen.dart';
 import 'package:flutter_project/features/home/screens/pharmacy_flow_screens.dart';
-import 'package:flutter_project/home_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +51,7 @@ void main() {
           userId: 'user-1',
           userEmail: 'test@example.com',
           onSignOut: () async {},
+          authRepository: _FakeAuthRepository(),
           pharmacyRepository: _FakePharmacyRepository(),
         ),
       ),
@@ -97,10 +105,7 @@ void main() {
   });
 
   test('adds unit after vitamin type is selected', () {
-    expect(
-      PharmacyFlowLogic.composeDose(type: '', amountText: '5'),
-      '5',
-    );
+    expect(PharmacyFlowLogic.composeDose(type: '', amountText: '5'), '5');
     expect(
       PharmacyFlowLogic.composeDose(type: 'Спрей', amountText: '5'),
       '5 нажатий',
@@ -192,10 +197,129 @@ void main() {
     expect(item.contraindicationsText, 'Гиперкальциемия');
     expect(item.defaultCondition, 'during_meal');
   });
+
+  group('Auth widget-тесты (регистрация/вход)', () {
+    late _FakeAuthRepository fakeAuth;
+    late _FakeAppAnalytics fakeAnalytics;
+
+    setUp(() {
+      fakeAuth = _FakeAuthRepository();
+      fakeAnalytics = _FakeAppAnalytics();
+    });
+
+    testWidgets('register: при пустом вводе показываются ошибки валидации',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterScreen(
+            authRepository: fakeAuth,
+            analytics: fakeAnalytics,
+            onRegister: (e, p, r) async {},
+            onLoginTap: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.text('Зарегистрироваться'));
+      await tester.pumpAndSettle();
+      expect(find.text('Введите e-mail'), findsOneWidget);
+    });
+
+    testWidgets('login: при пустом пароле показывается ошибка валидации',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LoginScreen(
+            authRepository: fakeAuth,
+            analytics: fakeAnalytics,
+            onLogin: (e, p) async {},
+            onForgotPassword: () {},
+            onRegisterTap: () {},
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField).first, 'a@b.co');
+      await tester.tap(find.text('Войти'));
+      await tester.pumpAndSettle();
+      expect(find.text('Введите пароль'), findsOneWidget);
+    });
+
+    testWidgets('register: успешный сценарий — переход на экран «Аккаунт создан»',
+        (WidgetTester tester) async {
+      final router = GoRouter(
+        initialLocation: '/register',
+        routes: [
+          GoRoute(
+            path: '/register',
+            builder: (_, __) => RegisterScreen(
+              authRepository: fakeAuth,
+              analytics: fakeAnalytics,
+              onRegister: (e, p, r) async {},
+              onLoginTap: () {},
+            ),
+          ),
+          GoRoute(
+            path: '/creating',
+            builder: (_, __) => const SizedBox.shrink(),
+          ),
+          GoRoute(
+            path: '/account-created',
+            builder: (_, __) => const Text('Аккаунт создан'),
+          ),
+        ],
+      );
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.enterText(find.byType(TextField).at(0), 'test@example.com');
+      await tester.enterText(find.byType(TextField).at(1), 'Abcd123!');
+      await tester.enterText(find.byType(TextField).at(2), 'Abcd123!');
+      await tester.tap(find.text('Зарегистрироваться'));
+      await tester.pumpAndSettle();
+      expect(find.text('Аккаунт создан'), findsOneWidget);
+    });
+  });
 }
 
 void _noop() {}
 void _noopTab(HomeTab _) {}
+
+class _FakeAuthRepository implements AuthRepository {
+  @override
+  AuthUser? get currentUser => null;
+
+  @override
+  Stream<AuthUser?> get authStateChanges => const Stream.empty();
+
+  @override
+  Future<void> signUp(String email, String password) async {}
+
+  @override
+  Future<void> signIn(String email, String password) async {}
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {}
+
+  @override
+  Future<void> confirmPasswordReset(String code, String newPassword) async {}
+
+  @override
+  String? mapAuthException(Object e) => null;
+}
+
+class _FakeAppAnalytics implements AppAnalyticsInterface {
+  @override
+  Future<void> logSignUpSuccess() async {}
+
+  @override
+  Future<void> logSignUpError(String message) async {}
+
+  @override
+  Future<void> logLoginSuccess() async {}
+
+  @override
+  Future<void> logLoginError(String message) async {}
+}
 
 class _FakePharmacyRepository implements PharmacyRepository {
   @override
@@ -204,7 +328,9 @@ class _FakePharmacyRepository implements PharmacyRepository {
   @override
   Future<List<PharmacyReminder>> fetchReminders() async {
     final reminder = await fetchReminder('vit-d');
-    return reminder == null ? const <PharmacyReminder>[] : <PharmacyReminder>[reminder];
+    return reminder == null
+        ? const <PharmacyReminder>[]
+        : <PharmacyReminder>[reminder];
   }
 
   @override
@@ -215,16 +341,16 @@ class _FakePharmacyRepository implements PharmacyRepository {
 
   @override
   Future<List<VitaminCatalogItem>> fetchCatalog([String query = '']) async => [
-        const VitaminCatalogItem(
-          id: 'vit-d',
-          displayName: 'Витамин D',
-          defaultUnit: 'капсула',
-          interactionText: 'Следите за регулярностью приёма.',
-          compatibilityText: 'Подходит для длительного курса.',
-          contraindicationsText: 'Учитывайте индивидуальные ограничения.',
-          defaultCondition: 'after_meal',
-        ),
-      ];
+    const VitaminCatalogItem(
+      id: 'vit-d',
+      displayName: 'Витамин D',
+      defaultUnit: 'капсула',
+      interactionText: 'Следите за регулярностью приёма.',
+      compatibilityText: 'Подходит для длительного курса.',
+      contraindicationsText: 'Учитывайте индивидуальные ограничения.',
+      defaultCondition: 'after_meal',
+    ),
+  ];
 
   @override
   Future<PharmacyReminder?> fetchReminder(String reminderId) async {

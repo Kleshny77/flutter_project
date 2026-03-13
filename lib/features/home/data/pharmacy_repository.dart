@@ -33,9 +33,7 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   final FirebaseFirestore _firestore;
   final Uuid _uuid = const Uuid();
 
-  static const List<String> _rootCollectionCandidates = [
-    'reminders',
-  ];
+  static const List<String> _rootCollectionCandidates = ['reminders'];
   static const List<String> _catalogCollectionCandidates = [
     'vitamins',
     'catalog',
@@ -56,20 +54,21 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   @override
   Future<List<PharmacyVitamin>> fetchVitamins() async {
     final reminders = await fetchReminders();
-    final vitamins = reminders
-        .where((reminder) => reminder.isActive)
-        .map(
-          (reminder) => PharmacyVitamin(
-            id: reminder.id,
-            title: reminder.title,
-            isActive: reminder.isActive,
-          ),
-        )
-        .toList()
-      ..sort(
-        (left, right) =>
-            left.title.toLowerCase().compareTo(right.title.toLowerCase()),
-      );
+    final vitamins =
+        reminders
+            .where((reminder) => reminder.isActive)
+            .map(
+              (reminder) => PharmacyVitamin(
+                id: reminder.id,
+                title: reminder.title,
+                isActive: reminder.isActive,
+              ),
+            )
+            .toList()
+          ..sort(
+            (left, right) =>
+                left.title.toLowerCase().compareTo(right.title.toLowerCase()),
+          );
     return vitamins;
   }
 
@@ -93,9 +92,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   @override
   Future<String> createReminder(PharmacyReminderInput input) async {
     final reminderId = _uuid.v4();
-    await _userRemindersCollection.doc(reminderId).set(
-          _encodeReminder(id: reminderId, input: input),
-        );
+    await _userRemindersCollection
+        .doc(reminderId)
+        .set(_encodeReminder(id: reminderId, input: input));
     return reminderId;
   }
 
@@ -104,7 +103,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     String reminderId,
     PharmacyReminderInput input,
   ) async {
-    final ref = await _findReminderReference(reminderId) ??
+    final ref =
+        await _findReminderReference(reminderId) ??
         _userRemindersCollection.doc(reminderId);
     await ref.set(
       _encodeReminder(id: reminderId, input: input),
@@ -144,8 +144,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
           }).toList();
 
     filtered.sort(
-      (left, right) =>
-          left.resolvedName.toLowerCase().compareTo(right.resolvedName.toLowerCase()),
+      (left, right) => left.resolvedName.toLowerCase().compareTo(
+        right.resolvedName.toLowerCase(),
+      ),
     );
     return filtered;
   }
@@ -156,7 +157,7 @@ class FirestorePharmacyRepository implements PharmacyRepository {
   }
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-      _loadReminderDocuments() async {
+  _loadReminderDocuments() async {
     try {
       final nestedSnapshot = await _userRemindersCollection.get();
       if (nestedSnapshot.docs.isNotEmpty) {
@@ -195,7 +196,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     String reminderId,
   ) async {
     try {
-      final nestedByDocId = await _userRemindersCollection.doc(reminderId).get();
+      final nestedByDocId = await _userRemindersCollection
+          .doc(reminderId)
+          .get();
       if (nestedByDocId.exists) {
         return nestedByDocId.reference;
       }
@@ -204,8 +207,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     }
 
     try {
-      final nestedSnapshot =
-          await _userRemindersCollection.where('id', isEqualTo: reminderId).get();
+      final nestedSnapshot = await _userRemindersCollection
+          .where('id', isEqualTo: reminderId)
+          .get();
       if (nestedSnapshot.docs.isNotEmpty) {
         return nestedSnapshot.docs.first.reference;
       }
@@ -244,10 +248,7 @@ class FirestorePharmacyRepository implements PharmacyRepository {
         if (!_looksLikeCatalogDocument(data)) {
           continue;
         }
-        final item = VitaminCatalogItem.fromMap({
-          'id': doc.id,
-          ...data,
-        });
+        final item = VitaminCatalogItem.fromMap({'id': doc.id, ...data});
         if (item.id.isNotEmpty && seenIds.add(item.id)) {
           items.add(item);
         }
@@ -294,8 +295,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     final catalogMap = rawCatalog is Map<String, dynamic>
         ? rawCatalog
         : rawCatalog is Map
-            ? rawCatalog.cast<String, dynamic>()
-            : <String, dynamic>{};
+        ? rawCatalog.cast<String, dynamic>()
+        : <String, dynamic>{};
     final catalogId =
         _readString(data['catalog_id']) ?? _readString(data['catalogId']);
     final catalog = catalogMap.isEmpty
@@ -305,7 +306,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
             ...catalogMap,
           });
 
-    final title = _firstNonEmpty([
+    final title =
+        _firstNonEmpty([
           catalog?.displayName,
           _readString(data['title']),
           _readString(data['name']),
@@ -325,7 +327,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     );
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
-    final startDate = _parseDate(
+    final startDate =
+        _parseDate(
           _readString(courseMap['start_date']) ??
               _readString(courseMap['startDate']),
         ) ??
@@ -333,14 +336,12 @@ class FirestorePharmacyRepository implements PharmacyRepository {
     final endDate = _parseDate(
       _readString(courseMap['end_date']) ?? _readString(courseMap['endDate']),
     );
-    final days = _readStringList(scheduleMap['days'])
-        .map(Weekday.fromApiCode)
-        .whereType<Weekday>()
-        .toList();
-    final times = _readStringList(scheduleMap['times'])
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
+    final days = _readStringList(
+      scheduleMap['days'],
+    ).map(Weekday.fromApiCode).whereType<Weekday>().toList();
+    final times = _readStringList(
+      scheduleMap['times'],
+    ).map((value) => value.trim()).where((value) => value.isNotEmpty).toList();
 
     return PharmacyReminder(
       id: id,
@@ -363,37 +364,41 @@ class FirestorePharmacyRepository implements PharmacyRepository {
         times: times.isEmpty ? [_currentTimeString()] : times,
       ),
       notificationPreferences: ReminderNotificationPreferences(
-        includeDose: _readBool(preferencesMap['include_dose']) ??
+        includeDose:
+            _readBool(preferencesMap['include_dose']) ??
             _readBool(preferencesMap['includeDose']) ??
             true,
-        includeFrequency: _readBool(preferencesMap['include_frequency']) ??
+        includeFrequency:
+            _readBool(preferencesMap['include_frequency']) ??
             _readBool(preferencesMap['includeFrequency']) ??
             true,
-        includeInteraction: _readBool(preferencesMap['include_interaction']) ??
+        includeInteraction:
+            _readBool(preferencesMap['include_interaction']) ??
             _readBool(preferencesMap['includeInteraction']) ??
             true,
         includeCompatibility:
             _readBool(preferencesMap['include_compatibility']) ??
-                _readBool(preferencesMap['includeCompatibility']) ??
-                true,
-        includeCondition: _readBool(preferencesMap['include_condition']) ??
+            _readBool(preferencesMap['includeCompatibility']) ??
+            true,
+        includeCondition:
+            _readBool(preferencesMap['include_condition']) ??
             _readBool(preferencesMap['includeCondition']) ??
             true,
         includeContraindications:
             _readBool(preferencesMap['include_contraindications']) ??
-                _readBool(preferencesMap['includeContraindications']) ??
-                true,
+            _readBool(preferencesMap['includeContraindications']) ??
+            true,
       ),
       contentOverrides: ReminderContentOverrides(
         interactionTextOverride:
             _readString(overridesMap['interaction_text_override']) ??
-                _readString(overridesMap['interactionTextOverride']),
+            _readString(overridesMap['interactionTextOverride']),
         compatibilityTextOverride:
             _readString(overridesMap['compatibility_text_override']) ??
-                _readString(overridesMap['compatibilityTextOverride']),
+            _readString(overridesMap['compatibilityTextOverride']),
         contraindicationsTextOverride:
             _readString(overridesMap['contraindications_text_override']) ??
-                _readString(overridesMap['contraindicationsTextOverride']),
+            _readString(overridesMap['contraindicationsTextOverride']),
       ),
     );
   }
@@ -415,8 +420,9 @@ class FirestorePharmacyRepository implements PharmacyRepository {
       'catalog': input.catalog?.toMap(),
       'course': {
         'start_date': _formatDate(input.courseStartDate),
-        'end_date':
-            input.courseEndDate == null ? null : _formatDate(input.courseEndDate!),
+        'end_date': input.courseEndDate == null
+            ? null
+            : _formatDate(input.courseEndDate!),
         'timezone': input.timezone,
       },
       'schedule': {
@@ -544,7 +550,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
       code: 'A',
       displayName: 'Витамин A',
       defaultUnit: 'капсула',
-      interactionText: 'Принимайте согласно инструкции и не превышайте дозировку.',
+      interactionText:
+          'Принимайте согласно инструкции и не превышайте дозировку.',
       compatibilityText: 'Подходит для ежедневного приёма в составе курса.',
       contraindicationsText: 'Проверьте индивидуальную переносимость.',
       defaultCondition: 'after_meal',
@@ -554,7 +561,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
       code: 'B',
       displayName: 'Витамин B',
       defaultUnit: 'таблетка',
-      interactionText: 'Сочетайте с назначенной схемой врача при необходимости.',
+      interactionText:
+          'Сочетайте с назначенной схемой врача при необходимости.',
       compatibilityText: 'Можно включать в комплексную витаминную программу.',
       contraindicationsText: 'Учитывайте чувствительность к компонентам.',
       defaultCondition: 'after_meal',
@@ -564,7 +572,8 @@ class FirestorePharmacyRepository implements PharmacyRepository {
       code: 'C',
       displayName: 'Витамин C',
       defaultUnit: 'таблетка',
-      interactionText: 'Не комбинируйте с другими средствами без необходимости.',
+      interactionText:
+          'Не комбинируйте с другими средствами без необходимости.',
       compatibilityText: 'Хорошо подходит для регулярного контроля курса.',
       contraindicationsText: 'Сверьтесь с рекомендациями по дозировке.',
       defaultCondition: 'after_meal',

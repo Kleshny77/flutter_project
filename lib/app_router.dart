@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'features/auth/auth_service.dart';
+import 'core/app_analytics.dart' show AppAnalytics, AppAnalyticsInterface;
+import 'domain/repositories/auth_repository.dart';
 import 'features/auth/screens/welcome_screen.dart';
 import 'features/auth/screens/register_screen.dart';
 import 'features/auth/screens/login_screen.dart';
@@ -12,13 +13,24 @@ import 'features/auth/screens/forgot_password_email_screen.dart';
 import 'features/auth/screens/forgot_password_sent_screen.dart';
 import 'features/home/data/home_preferences.dart';
 import 'features/home/data/reminder_notification_service.dart';
+import 'features/home/screens/home_screen.dart';
 import 'features/profile/data/user_profile_repository.dart';
-import 'home_screen.dart';
 
+/// Централизованная композиция маршрутов. Зависимости передаются из main.
 class AppRouter {
-  AppRouter(this._authService);
+  AppRouter(
+    this._authRepository, {
+    required UserProfileRepository profileRepository,
+    required PostRegistrationOnboardingStorage onboardingStorage,
+    AppAnalyticsInterface? analytics,
+  }) : _profileRepository = profileRepository,
+       _onboardingStorage = onboardingStorage,
+       _analytics = analytics ?? AppAnalytics();
 
-  final AuthService _authService;
+  final AuthRepository _authRepository;
+  final UserProfileRepository _profileRepository;
+  final PostRegistrationOnboardingStorage _onboardingStorage;
+  final AppAnalyticsInterface _analytics;
 
   static const String welcome = '/';
   static const String register = '/register';
@@ -33,9 +45,9 @@ class AppRouter {
   GoRouter get router => _router;
   late final GoRouter _router = GoRouter(
     initialLocation: welcome,
-    refreshListenable: _AuthRefresh(_authService),
+    refreshListenable: _AuthRefresh(_authRepository),
     redirect: (context, state) {
-      final user = _authService.currentUser;
+      final user = _authRepository.currentUser;
       final onAuth =
           state.matchedLocation == welcome ||
           state.matchedLocation == register ||
@@ -61,7 +73,8 @@ class AppRouter {
       GoRoute(
         path: register,
         builder: (context, _) => RegisterScreen(
-          authService: _authService,
+          authRepository: _authRepository,
+          analytics: _analytics,
           onRegister: _onRegister,
           onLoginTap: () => context.push(login),
         ),
@@ -69,7 +82,8 @@ class AppRouter {
       GoRoute(
         path: login,
         builder: (context, _) => LoginScreen(
-          authService: _authService,
+          authRepository: _authRepository,
+          analytics: _analytics,
           onLogin: _onLogin,
           onForgotPassword: () => context.push(forgotPassword),
           onRegisterTap: () => context.push(register),
@@ -96,7 +110,7 @@ class AppRouter {
       GoRoute(
         path: forgotPassword,
         builder: (context, _) => ForgotPasswordEmailScreen(
-          authService: _authService,
+          authRepository: _authRepository,
           onSendCode: _onSendResetCode,
           onBack: () => context.pop(),
         ),
@@ -113,11 +127,18 @@ class AppRouter {
       ),
       GoRoute(
         path: home,
-        builder: (context, _) => HomeScreen(
-          userId: _authService.currentUser!.uid,
-          userEmail: _authService.currentUser!.email,
-          onSignOut: _onSignOut,
-        ),
+        builder: (context, _) {
+          final user = _authRepository.currentUser;
+          if (user == null) {
+            return const SizedBox.shrink();
+          }
+          return HomeScreen(
+            userId: user.id,
+            userEmail: user.email,
+            onSignOut: _onSignOut,
+            authRepository: _authRepository,
+          );
+        },
       ),
     ],
   );
@@ -127,30 +148,32 @@ class AppRouter {
     String password,
     String repeatPassword,
   ) async {
-    await _authService.signUp(email, password);
-    final user = _authService.currentUser;
+    await _authRepository.signUp(email, password);
+    final user = _authRepository.currentUser;
     if (user != null) {
-      await UserProfileRepository().upsertEmail(userId: user.uid, email: email);
+      await _profileRepository.upsertEmail(userId: user.id, email: email);
     }
-    await PostRegistrationOnboardingStorage().markPending();
+    await _onboardingStorage.markPending();
+    await _analytics.logSignUpSuccess();
   }
 
   Future<void> _onLogin(String email, String password) async {
-    await _authService.signIn(email, password);
+    await _authRepository.signIn(email, password);
+    await _analytics.logLoginSuccess();
   }
 
   Future<void> _onSendResetCode(String email) async {
-    await _authService.sendPasswordResetEmail(email);
+    await _authRepository.sendPasswordResetEmail(email);
   }
 
   Future<void> _onSignOut() async {
     await ReminderNotificationService.instance.cancelAll();
-    await _authService.signOut();
+    await _authRepository.signOut();
   }
 }
 
 class _AuthRefresh extends ChangeNotifier {
-  _AuthRefresh(AuthService auth) {
-    auth.authStateChanges.listen((_) => notifyListeners());
+  _AuthRefresh(AuthRepository authRepository) {
+    authRepository.authStateChanges.listen((_) => notifyListeners());
   }
 }

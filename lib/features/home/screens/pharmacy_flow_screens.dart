@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../../core/app_design.dart';
+import '../../../core/app_dialog.dart';
 import '../data/pharmacy_repository.dart';
 import '../models/home_tab.dart';
 import '../models/pharmacy_reminder.dart';
@@ -101,21 +102,22 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
     final name = _draft.name.trim();
     final type = _draft.type.trim();
     final dose = _doseController.text.trim();
-    if (name.isEmpty || type.isEmpty || dose.isEmpty || _draft.intake == null) {
-      showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Заполните обязательные поля'),
-          content: const Text(
-            'Пожалуйста, заполните всю информацию, кроме поля «Примечание».',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('ОК'),
-            ),
-          ],
-        ),
+    final intake = _draft.intake;
+    if (name.isEmpty || type.isEmpty || dose.isEmpty || intake == null) {
+      final missing = <String>[];
+      if (name.isEmpty) missing.add('Название');
+      if (type.isEmpty) missing.add('Вид витамина');
+      if (dose.isEmpty) missing.add('Разовая доза');
+      if (intake == null) {
+        missing.add('Когда принимать (До еды / С едой / После еды)');
+      }
+      final message = missing.length == 1
+          ? 'Заполните: ${missing.single}.'
+          : 'Заполните: ${missing.join(', ')}. Поле «Примечание» необязательно.';
+      AppDialog.showInfo(
+        context,
+        title: 'Заполните обязательные поля',
+        message: message,
       );
       return;
     }
@@ -348,7 +350,11 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var index = 0; index < IntakeMoment.values.length; index++) ...[
+                for (
+                  var index = 0;
+                  index < IntakeMoment.values.length;
+                  index++
+                ) ...[
                   Expanded(
                     child: _IntakeMomentCard(
                       moment: IntakeMoment.values[index],
@@ -385,15 +391,21 @@ class _AddVitaminScreenState extends State<AddVitaminScreen> {
                 ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFB),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 18,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+                  borderSide: BorderSide(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+                  borderSide: BorderSide(
+                    color: Colors.black.withValues(alpha: 0.08),
+                  ),
                 ),
               ),
             ),
@@ -459,18 +471,14 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
         ? [PharmacyFlowLogic.currentTimeString()]
         : [...widget.draft.intakeTimes];
     _timeEntries = initialTimes
-        .map(
-          (time) => _ScheduleTimeEntry(
-            id: _nextTimeEntryId++,
-            time: time,
-          ),
-        )
+        .map((time) => _ScheduleTimeEntry(id: _nextTimeEntryId++, time: time))
         .toList(growable: true);
     _selectedDays = widget.draft.weekdays.isEmpty
         ? Weekday.values.toSet()
         : widget.draft.weekdays.toSet();
     _startDate = widget.draft.courseStartDate;
-    _endDate = widget.draft.courseEndDate ?? _startDate.add(const Duration(days: 14));
+    _endDate =
+        widget.draft.courseEndDate ?? _startDate.add(const Duration(days: 14));
   }
 
   void _handleTabTap(HomeTab tab) {
@@ -628,10 +636,7 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
         return FadeTransition(
           opacity: curved,
           child: ScaleTransition(
-            scale: Tween<double>(
-              begin: 0.94,
-              end: 1,
-            ).animate(curved),
+            scale: Tween<double>(begin: 0.94, end: 1).animate(curved),
             child: child,
           ),
         );
@@ -724,8 +729,9 @@ class _AddVitaminScheduleScreenState extends State<AddVitaminScheduleScreen> {
                   order: index + 1,
                   animation: animation,
                   onTap: () => _pickTime(index),
-                  onDelete:
-                      _timeEntries.length > 1 ? () => _removeTimeEntry(index) : null,
+                  onDelete: _timeEntries.length > 1
+                      ? () => _removeTimeEntry(index)
+                      : null,
                 );
               },
             ),
@@ -951,7 +957,10 @@ class _AddVitaminNotificationScreenState
       if (widget.editingReminderId == null) {
         await widget.repository.createReminder(payload);
       } else {
-        await widget.repository.updateReminder(widget.editingReminderId!, payload);
+        await widget.repository.updateReminder(
+          widget.editingReminderId!,
+          payload,
+        );
       }
       if (!mounted) {
         return;
@@ -963,30 +972,21 @@ class _AddVitaminNotificationScreenState
         return;
       }
       setState(() => _submitting = false);
-      showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Ошибка'),
-          content: Text(
-            widget.editingReminderId == null
-                ? 'Не удалось добавить витамин'
-                : 'Не удалось сохранить изменения',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Ок'),
-            ),
-          ],
-        ),
+      AppDialog.showInfo(
+        context,
+        title: 'Ошибка',
+        message: widget.editingReminderId == null
+            ? 'Не удалось добавить витамин'
+            : 'Не удалось сохранить изменения',
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final actionLabel =
-        widget.editingReminderId == null ? 'Добавить' : 'Сохранить';
+    final actionLabel = widget.editingReminderId == null
+        ? 'Добавить'
+        : 'Сохранить';
 
     return _PharmacyFlowScaffold(
       selectedTab: HomeTab.pharmacy,
@@ -1120,26 +1120,10 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
     if (_deleting || _reminder == null) {
       return;
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Удалить?'),
-          content: const Text(
-            'Вы точно хотите удалить напоминание о приеме витамина?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Да'),
-            ),
-          ],
-        );
-      },
+    final confirmed = await AppDialog.showConfirm(
+      context,
+      title: 'Удалить?',
+      message: 'Вы точно хотите удалить напоминание о приеме витамина?',
     );
     if (confirmed != true) {
       return;
@@ -1197,180 +1181,182 @@ class _VitaminDetailsScreenState extends State<VitaminDetailsScreen> {
               child: CircularProgressIndicator(color: AppPalette.blueMain),
             )
           : _reminder == null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Не удалось загрузить данные витамина',
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Не удалось загрузить данные витамина',
+                      style: TextStyle(
+                        fontFamily: 'Commissioner',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _loadReminder,
+                      child: const Text('Повторить'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                topPadding,
+                24,
+                compactLayout ? 126 : 154,
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          width: compactLayout ? 42 : 44,
+                          height: compactLayout ? 42 : 44,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color.fromRGBO(0, 0, 0, 0.12),
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: Image.asset(
+                            'assets/images/home/back_button.png',
+                            width: 24,
+                            height: 21,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          _reminder!.title,
                           style: TextStyle(
                             fontFamily: 'Commissioner',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontSize: titleFontSize,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF3B3B3B),
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: _loadReminder,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 60),
+                    ],
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    topPadding,
-                    24,
-                    compactLayout ? 126 : 154,
+                  SizedBox(height: headerSpacing),
+                  Image.asset(
+                    'assets/images/pharmacy/capsule2d.png',
+                    width: imageWidth,
+                    height: imageHeight,
+                    fit: BoxFit.contain,
                   ),
-                  child: Column(
+                  SizedBox(height: statsSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () => Navigator.of(context).pop(),
-                            child: Container(
-                              width: compactLayout ? 42 : 44,
-                              height: compactLayout ? 42 : 44,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Color.fromRGBO(0, 0, 0, 0.12),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: Image.asset(
-                                'assets/images/home/back_button.png',
-                                width: 24,
-                                height: 21,
-                              ),
-                            ),
+                      _StatCard(
+                        compact: compactLayout,
+                        subtitle: PharmacyFlowLogic.formLabel(_reminder!.form),
+                        child: Text(
+                          PharmacyFlowLogic.doseAmount(_reminder!.dose),
+                          style: TextStyle(
+                            fontFamily: 'Commissioner',
+                            fontSize: compactLayout ? 38 : 43,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.blueMain,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              _reminder!.title,
-                              style: TextStyle(
-                                fontFamily: 'Commissioner',
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF3B3B3B),
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(width: 60),
-                        ],
+                        ),
                       ),
-                      SizedBox(height: headerSpacing),
-                      Image.asset(
-                        'assets/images/pharmacy/capsule2d.png',
-                        width: imageWidth,
-                        height: imageHeight,
-                        fit: BoxFit.contain,
+                      _StatCard(
+                        compact: compactLayout,
+                        subtitle: PharmacyFlowLogic.frequencyLabel(_reminder!),
+                        child: Image.asset(
+                          'assets/images/pharmacy/calendar.png',
+                          width: compactLayout ? 30 : 32,
+                          height: compactLayout ? 33 : 35,
+                        ),
                       ),
-                      SizedBox(height: statsSpacing),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _StatCard(
-                            compact: compactLayout,
-                            subtitle: PharmacyFlowLogic.formLabel(_reminder!.form),
-                            child: Text(
-                              PharmacyFlowLogic.doseAmount(_reminder!.dose),
-                              style: TextStyle(
-                                fontFamily: 'Commissioner',
-                                fontSize: compactLayout ? 38 : 43,
-                                fontWeight: FontWeight.w700,
-                                color: AppPalette.blueMain,
-                              ),
-                            ),
-                          ),
-                          _StatCard(
-                            compact: compactLayout,
-                            subtitle: PharmacyFlowLogic.frequencyLabel(_reminder!),
-                            child: Image.asset(
-                              'assets/images/pharmacy/calendar.png',
-                              width: compactLayout ? 30 : 32,
-                              height: compactLayout ? 33 : 35,
-                            ),
-                          ),
-                          _StatCard(
-                            compact: compactLayout,
-                            subtitle: PharmacyFlowLogic.conditionLabel(
-                              _reminder!.condition,
-                            ),
-                            child: Image.asset(
-                              PharmacyFlowLogic.conditionIcon(_reminder!.condition),
-                              width: PharmacyFlowLogic.conditionIconSize(
+                      _StatCard(
+                        compact: compactLayout,
+                        subtitle: PharmacyFlowLogic.conditionLabel(
+                          _reminder!.condition,
+                        ),
+                        child: Image.asset(
+                          PharmacyFlowLogic.conditionIcon(_reminder!.condition),
+                          width:
+                              PharmacyFlowLogic.conditionIconSize(
                                 _reminder!.condition,
                               ).width *
-                                  (compactLayout ? 0.92 : 1),
-                              height: PharmacyFlowLogic.conditionIconSize(
+                              (compactLayout ? 0.92 : 1),
+                          height:
+                              PharmacyFlowLogic.conditionIconSize(
                                 _reminder!.condition,
                               ).height *
-                                  (compactLayout ? 0.92 : 1),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: compactLayout ? 16 : 22),
-                      ...PharmacyFlowLogic.infoOptions(_reminder!).map((option) {
-                        final expanded = _expandedIds.contains(option.id);
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: cardsSpacing),
-                          child: _DetailsInfoCard(
-                            option: option,
-                            expanded: expanded,
-                            selected: _selectedIds.contains(option.id),
-                            compact: compactLayout,
-                            onToggle: () => setState(() {
-                              if (expanded) {
-                                _expandedIds.remove(option.id);
-                              } else {
-                                _expandedIds.add(option.id);
-                              }
-                            }),
-                          ),
-                        );
-                      }),
-                      SizedBox(height: preButtonsSpacing),
-                      SizedBox(
-                        width: 174,
-                        child: _OutlineActionButton(
-                          label: 'Настроить',
-                          onPressed: _openEditFlow,
-                          textColor: Colors.black,
-                          height: compactLayout ? 48 : 52,
-                          fontSize: compactLayout ? 18 : 20,
-                        ),
-                      ),
-                      SizedBox(height: buttonSpacing),
-                      SizedBox(
-                        width: 174,
-                        child: _OutlineActionButton(
-                          label: 'Удалить',
-                          onPressed: _deleteReminder,
-                          textColor: const Color(0xFFEA3E3E),
-                          loading: _deleting,
-                          height: compactLayout ? 48 : 52,
-                          fontSize: compactLayout ? 18 : 20,
+                              (compactLayout ? 0.92 : 1),
                         ),
                       ),
                     ],
                   ),
-                ),
+                  SizedBox(height: compactLayout ? 16 : 22),
+                  ...PharmacyFlowLogic.infoOptions(_reminder!).map((option) {
+                    final expanded = _expandedIds.contains(option.id);
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: cardsSpacing),
+                      child: _DetailsInfoCard(
+                        option: option,
+                        expanded: expanded,
+                        selected: _selectedIds.contains(option.id),
+                        compact: compactLayout,
+                        onToggle: () => setState(() {
+                          if (expanded) {
+                            _expandedIds.remove(option.id);
+                          } else {
+                            _expandedIds.add(option.id);
+                          }
+                        }),
+                      ),
+                    );
+                  }),
+                  SizedBox(height: preButtonsSpacing),
+                  SizedBox(
+                    width: 174,
+                    child: _OutlineActionButton(
+                      label: 'Настроить',
+                      onPressed: _openEditFlow,
+                      textColor: Colors.black,
+                      height: compactLayout ? 48 : 52,
+                      fontSize: compactLayout ? 18 : 20,
+                    ),
+                  ),
+                  SizedBox(height: buttonSpacing),
+                  SizedBox(
+                    width: 174,
+                    child: _OutlineActionButton(
+                      label: 'Удалить',
+                      onPressed: _deleteReminder,
+                      textColor: const Color(0xFFEA3E3E),
+                      loading: _deleting,
+                      height: compactLayout ? 48 : 52,
+                      fontSize: compactLayout ? 18 : 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -1398,10 +1384,7 @@ class _PharmacyFlowScaffold extends StatelessWidget {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: SafeArea(
-          bottom: false,
-          child: child,
-        ),
+        child: SafeArea(bottom: false, child: child),
       ),
       bottomNavigationBar: HomeTabBarHost(
         selectedTab: selectedTab,
@@ -1644,21 +1627,13 @@ class _IntakeTimeCard extends StatelessWidget {
 }
 
 class _ScheduleTimeEntry {
-  const _ScheduleTimeEntry({
-    required this.id,
-    required this.time,
-  });
+  const _ScheduleTimeEntry({required this.id, required this.time});
 
   final int id;
   final String time;
 
-  _ScheduleTimeEntry copyWith({
-    String? time,
-  }) {
-    return _ScheduleTimeEntry(
-      id: id,
-      time: time ?? this.time,
-    );
+  _ScheduleTimeEntry copyWith({String? time}) {
+    return _ScheduleTimeEntry(id: id, time: time ?? this.time);
   }
 }
 
@@ -1890,7 +1865,9 @@ class _NotificationCard extends StatelessWidget {
                           : Align(
                               alignment: Alignment.centerLeft,
                               child: Text(
-                                value.trim().isEmpty ? option.placeholder : value,
+                                value.trim().isEmpty
+                                    ? option.placeholder
+                                    : value,
                                 style: const TextStyle(
                                   fontFamily: 'Commissioner',
                                   fontSize: 18,
@@ -1966,11 +1943,7 @@ class _WeekdayChip extends StatelessWidget {
 }
 
 class _SwipeToDeleteCard extends StatelessWidget {
-  const _SwipeToDeleteCard({
-    super.key,
-    required this.child,
-    this.onDelete,
-  });
+  const _SwipeToDeleteCard({super.key, required this.child, this.onDelete});
 
   final Widget child;
   final VoidCallback? onDelete;
@@ -1993,10 +1966,12 @@ class _SwipeToDeleteCard extends StatelessWidget {
             onPressed: (context) {
               final controller = Slidable.of(context);
               if (controller != null) {
-                controller.close(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                ).whenComplete(() => onDelete?.call());
+                controller
+                    .close(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                    )
+                    .whenComplete(() => onDelete?.call());
                 return;
               }
               onDelete?.call();
@@ -2071,7 +2046,8 @@ class _CatalogSearchSheet extends StatefulWidget {
 class _CatalogSearchSheetState extends State<_CatalogSearchSheet> {
   late final TextEditingController _controller;
 
-  String get _normalizedSelectedName => widget.selectedName.trim().toLowerCase();
+  String get _normalizedSelectedName =>
+      widget.selectedName.trim().toLowerCase();
 
   @override
   void initState() {
@@ -2094,7 +2070,10 @@ class _CatalogSearchSheetState extends State<_CatalogSearchSheet> {
             return item.resolvedName.toLowerCase().contains(query);
           }).toList();
     final safeBottom = MediaQuery.of(context).padding.bottom;
-    final sheetHeight = math.min(MediaQuery.of(context).size.height * 0.64, 470.0);
+    final sheetHeight = math.min(
+      MediaQuery.of(context).size.height * 0.64,
+      470.0,
+    );
 
     return Container(
       width: double.infinity,
@@ -2295,16 +2274,16 @@ class _CatalogSearchSheetState extends State<_CatalogSearchSheet> {
                     final item = filtered[index];
                     final isSelected =
                         item.id == widget.selectedCatalogId ||
-                            (widget.selectedCatalogId == null &&
-                                item.resolvedName.trim().toLowerCase() ==
-                                    _normalizedSelectedName);
+                        (widget.selectedCatalogId == null &&
+                            item.resolvedName.trim().toLowerCase() ==
+                                _normalizedSelectedName);
                     final subtitle = item.code?.trim().isNotEmpty == true
                         ? item.code!.trim()
                         : 'Витамин';
                     return InkWell(
-                      onTap: () => Navigator.of(context).pop(
-                        _CatalogSelectionResult(catalogItem: item),
-                      ),
+                      onTap: () => Navigator.of(
+                        context,
+                      ).pop(_CatalogSelectionResult(catalogItem: item)),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         child: Row(
@@ -2504,7 +2483,10 @@ class _StatCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.2), width: 0.6),
+              border: Border.all(
+                color: Colors.black.withValues(alpha: 0.2),
+                width: 0.6,
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Color.fromRGBO(0, 0, 0, 0.25),
@@ -2698,8 +2680,12 @@ class PharmacyFlowLogic {
   static DateTime timeToDate(String raw) {
     final parts = raw.split(':');
     final now = DateTime.now();
-    final hours = parts.isNotEmpty ? int.tryParse(parts[0]) ?? now.hour : now.hour;
-    final minutes = parts.length > 1 ? int.tryParse(parts[1]) ?? now.minute : now.minute;
+    final hours = parts.isNotEmpty
+        ? int.tryParse(parts[0]) ?? now.hour
+        : now.hour;
+    final minutes = parts.length > 1
+        ? int.tryParse(parts[1]) ?? now.minute
+        : now.minute;
     return DateTime(now.year, now.month, now.day, hours, minutes);
   }
 
@@ -2823,19 +2809,20 @@ class PharmacyFlowLogic {
       'dose': draft.dose,
       'frequency': frequencyText(draft),
       'note': draft.notes,
-      'condition': draft.intake?.title.replaceAll('\n', ' ') ??
+      'condition':
+          draft.intake?.title.replaceAll('\n', ' ') ??
           localizedCondition(draft.catalogDefaultCondition),
       'interaction': draft.interactionTextOverride?.trim().isNotEmpty == true
           ? draft.interactionTextOverride!.trim()
           : (draft.catalogInteractionText ?? ''),
       'compatibility':
           draft.compatibilityTextOverride?.trim().isNotEmpty == true
-              ? draft.compatibilityTextOverride!.trim()
-              : (draft.catalogCompatibilityText ?? ''),
+          ? draft.compatibilityTextOverride!.trim()
+          : (draft.catalogCompatibilityText ?? ''),
       'contraindications':
           draft.contraindicationsTextOverride?.trim().isNotEmpty == true
-              ? draft.contraindicationsTextOverride!.trim()
-              : (draft.catalogContraindicationsText ?? ''),
+          ? draft.contraindicationsTextOverride!.trim()
+          : (draft.catalogContraindicationsText ?? ''),
     };
   }
 
@@ -2923,7 +2910,8 @@ class PharmacyFlowLogic {
       form: formApiValue(draft.type),
       dose: draft.dose.trim().isEmpty ? '1' : draft.dose.trim(),
       condition:
-          draft.intake?.apiCondition ?? (draft.catalogDefaultCondition ?? 'any'),
+          draft.intake?.apiCondition ??
+          (draft.catalogDefaultCondition ?? 'any'),
       note: selectedOptionIds.contains('note')
           ? (details['note'] ?? '').trim()
           : '',
@@ -2931,7 +2919,9 @@ class PharmacyFlowLogic {
       courseEndDate: draft.courseEndDate,
       timezone: DateTime.now().timeZoneName,
       days: draft.weekdays.isEmpty ? Weekday.values : draft.weekdays,
-      times: draft.intakeTimes.isEmpty ? [currentTimeString()] : draft.intakeTimes,
+      times: draft.intakeTimes.isEmpty
+          ? [currentTimeString()]
+          : draft.intakeTimes,
       includeDose: selectedOptionIds.contains('dose'),
       includeFrequency: selectedOptionIds.contains('frequency'),
       includeInteraction: selectedOptionIds.contains('interaction'),
@@ -2968,7 +2958,11 @@ class PharmacyFlowLogic {
     );
   }
 
-  static String? overrideText(bool enabled, String? value, String? catalogDefault) {
+  static String? overrideText(
+    bool enabled,
+    String? value,
+    String? catalogDefault,
+  ) {
     if (!enabled) {
       return null;
     }
@@ -2977,7 +2971,9 @@ class PharmacyFlowLogic {
       return null;
     }
     final defaultValue = catalogDefault?.trim();
-    if (defaultValue != null && defaultValue.isNotEmpty && defaultValue == normalized) {
+    if (defaultValue != null &&
+        defaultValue.isNotEmpty &&
+        defaultValue == normalized) {
       return null;
     }
     return normalized;
@@ -3150,7 +3146,8 @@ class PharmacyFlowLogic {
   }
 
   static String resolvedCompatibilityText(PharmacyReminder reminder) {
-    final override = reminder.contentOverrides.compatibilityTextOverride?.trim();
+    final override = reminder.contentOverrides.compatibilityTextOverride
+        ?.trim();
     if (override != null && override.isNotEmpty) {
       return override;
     }
@@ -3159,8 +3156,8 @@ class PharmacyFlowLogic {
   }
 
   static String resolvedContraindicationsText(PharmacyReminder reminder) {
-    final override =
-        reminder.contentOverrides.contraindicationsTextOverride?.trim();
+    final override = reminder.contentOverrides.contraindicationsTextOverride
+        ?.trim();
     if (override != null && override.isNotEmpty) {
       return override;
     }

@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../auth/auth_service.dart';
+import '../../../core/app_dialog.dart';
+import '../../../domain/repositories/auth_repository.dart';
 import '../../auth/screens/forgot_password_email_screen.dart';
 import '../../home/data/home_preferences.dart';
 import '../data/user_profile_repository.dart';
@@ -16,12 +17,14 @@ class EditProfileScreen extends StatefulWidget {
     required this.onSignOut,
     this.fallbackEmail,
     this.repository,
+    this.authRepository,
   });
 
   final String userId;
   final String? fallbackEmail;
   final Future<void> Function() onSignOut;
   final UserProfileRepository? repository;
+  final AuthRepository? authRepository;
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -146,7 +149,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         width: compactLayout ? 150 : 164,
                         height: compactLayout ? 54 : 62,
                         child: FilledButton(
-                          onPressed: _hasChanges && !_saving ? _saveProfile : null,
+                          onPressed: _hasChanges && !_saving
+                              ? _saveProfile
+                              : null,
                           style: FilledButton.styleFrom(
                             backgroundColor: _hasChanges
                                 ? const Color(0xFF0E75F2)
@@ -229,7 +234,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildAvatarSection(bool compact) {
     final imageProvider = _avatarBytes != null
         ? MemoryImage(_avatarBytes!)
-        : const AssetImage('assets/images/profile/profile.png') as ImageProvider;
+        : const AssetImage('assets/images/profile/profile.png')
+              as ImageProvider;
 
     final outerSize = compact ? 168.0 : 196.0;
     final borderWidth = compact ? 5.0 : 6.0;
@@ -241,10 +247,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border: Border.all(
-          width: borderWidth,
-          color: const Color(0xFF4567C4),
-        ),
+        border: Border.all(width: borderWidth, color: const Color(0xFF4567C4)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF88A4FF).withValues(alpha: 0.16),
@@ -267,10 +270,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ],
         ),
         child: ClipOval(
-          child: Image(
-            image: imageProvider,
-            fit: BoxFit.cover,
-          ),
+          child: Image(image: imageProvider, fit: BoxFit.cover),
         ),
       ),
     );
@@ -383,48 +383,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _openPasswordReset() async {
-    final authService = AuthService();
+    final auth = widget.authRepository;
+    if (auth == null) {
+      return;
+    }
     final initialEmail = _emailController.text.trim();
 
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => ForgotPasswordEmailScreen(
-          authService: authService,
+          authRepository: auth,
           initialEmail: initialEmail,
-          onSendCode: authService.sendPasswordResetEmail,
+          onSendCode: auth.sendPasswordResetEmail,
           onBack: () => Navigator.of(context).pop(),
           onSent: (email) async {
             if (!mounted) {
               return;
             }
-            await showDialog<void>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text(
-                  'Проверьте почту',
-                  style: TextStyle(
-                    fontFamily: 'Commissioner',
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                content: Text(
-                  'Мы отправили письмо для сброса пароля на\n$email',
-                  style: const TextStyle(fontFamily: 'Commissioner'),
-                  textAlign: TextAlign.center,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text(
-                      'Ок',
-                      style: TextStyle(
-                        fontFamily: 'Commissioner',
-                        color: Color(0xFF0773F1),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            await AppDialog.showInfo(
+              context,
+              title: 'Проверьте почту',
+              message: 'Мы отправили письмо для сброса пароля на\n$email',
             );
           },
         ),
@@ -462,33 +441,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _saving = false;
       });
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text(
-            'Не удалось сохранить',
-            style: TextStyle(
-              fontFamily: 'Commissioner',
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: Text(
-            error.toString(),
-            style: const TextStyle(fontFamily: 'Commissioner'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text(
-                'Ок',
-                style: TextStyle(
-                  fontFamily: 'Commissioner',
-                  color: Color(0xFF0773F1),
-                ),
-              ),
-            ),
-          ],
-        ),
+      await AppDialog.showInfo(
+        context,
+        title: 'Не удалось сохранить',
+        message: error.toString(),
       );
     }
   }
@@ -590,9 +546,7 @@ class _ProfileTextField extends StatelessWidget {
           focusedErrorBorder: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
             horizontal: standalone ? 22 : 4,
-            vertical: standalone
-                ? (compact ? 20 : 24)
-                : (compact ? 2 : 4),
+            vertical: standalone ? (compact ? 20 : 24) : (compact ? 2 : 4),
           ),
         ),
       ),
@@ -645,7 +599,7 @@ class _ProfileOutlineButton extends StatelessWidget {
               if (iconPath != null)
                 Align(
                   alignment: Alignment.centerLeft,
-                child: Image.asset(
+                  child: Image.asset(
                     iconPath!,
                     width: compact ? 26 : 28,
                     height: compact ? 22 : 24,
@@ -718,10 +672,7 @@ class _ProfileCircleActionButton extends StatelessWidget {
 }
 
 class _LogoutDialog extends StatelessWidget {
-  const _LogoutDialog({
-    required this.onCancel,
-    required this.onConfirm,
-  });
+  const _LogoutDialog({required this.onCancel, required this.onConfirm});
 
   final VoidCallback onCancel;
   final VoidCallback onConfirm;
@@ -771,7 +722,10 @@ class _LogoutDialog extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Container(height: 2, color: const Color(0xFF7A8BFF).withValues(alpha: 0.25)),
+          Container(
+            height: 2,
+            color: const Color(0xFF7A8BFF).withValues(alpha: 0.25),
+          ),
           SizedBox(
             height: 48,
             child: Row(
@@ -790,7 +744,10 @@ class _LogoutDialog extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(width: 2, color: const Color(0xFF7A8BFF).withValues(alpha: 0.25)),
+                Container(
+                  width: 2,
+                  color: const Color(0xFF7A8BFF).withValues(alpha: 0.25),
+                ),
                 Expanded(
                   child: TextButton(
                     onPressed: onConfirm,

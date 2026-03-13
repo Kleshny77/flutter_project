@@ -3,20 +3,23 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app_theme.dart';
 import '../../../core/app_design.dart';
+import '../../../core/app_analytics.dart' show AppAnalyticsInterface;
 import '../../../core/validation.dart';
-import '../auth_service.dart';
+import '../../../domain/repositories/auth_repository.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/error_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({
     super.key,
-    required this.authService,
+    required this.authRepository,
+    required this.analytics,
     required this.onRegister,
     required this.onLoginTap,
   });
 
-  final AuthService authService;
+  final AuthRepository authRepository;
+  final AppAnalyticsInterface analytics;
   final Future<void> Function(
     String email,
     String password,
@@ -85,9 +88,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!context.mounted) {
         return;
       }
+      final message =
+          widget.authRepository.mapAuthException(e) ?? 'Ошибка регистрации';
+      widget.analytics.logSignUpError(message);
       router.pop();
       setState(() {
-        _authError = widget.authService.mapAuthException(e);
+        _authError = message;
         _loading = false;
       });
     }

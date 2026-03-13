@@ -2,10 +2,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'app_theme.dart';
 import 'app_router.dart';
+import 'app_theme.dart';
+import 'core/app_analytics.dart';
+import 'data/auth/auth_repository_impl.dart';
 import 'features/auth/auth_service.dart';
+import 'features/home/data/home_preferences.dart';
 import 'features/home/data/reminder_notification_service.dart';
+import 'features/profile/data/user_profile_repository.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -17,11 +21,10 @@ void main() async {
       );
     }
   } on FirebaseException catch (e) {
-    // Уже инициализирован нативной частью (macOS/iOS) — запускаем приложение
     if (e.code == 'duplicate-app') {
       _logFirebaseProject();
       await ReminderNotificationService.instance.initialize();
-      runApp(MyApp(router: AppRouter(AuthService())));
+      runApp(MyApp(router: _createRouter()));
       return;
     }
     runApp(_FirebaseNotConfiguredApp(message: e.toString()));
@@ -32,7 +35,22 @@ void main() async {
   }
   _logFirebaseProject();
   await ReminderNotificationService.instance.initialize();
-  runApp(MyApp(router: AppRouter(AuthService())));
+  runApp(MyApp(router: _createRouter()));
+}
+
+/// Централизованная сборка зависимостей (DI): Domain-абстракции и их Data-реализации.
+AppRouter _createRouter() {
+  final authService = AuthService();
+  final authRepository = AuthRepositoryImpl(authService);
+  final profileRepository = UserProfileRepository();
+  final onboardingStorage = PostRegistrationOnboardingStorage();
+  final analytics = AppAnalytics();
+  return AppRouter(
+    authRepository,
+    profileRepository: profileRepository,
+    onboardingStorage: onboardingStorage,
+    analytics: analytics,
+  );
 }
 
 void _logFirebaseProject() {

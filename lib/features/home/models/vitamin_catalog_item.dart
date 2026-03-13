@@ -78,7 +78,8 @@ class VitaminCatalogItem {
     return VitaminCatalogItem(
       id: readString(map['id']) ?? '',
       code: readString(map['code']) ?? readString(map['Supplement']),
-      displayName: readString(map['displayName']) ??
+      displayName:
+          readString(map['displayName']) ??
           readString(map['display_name']) ??
           readString(map['Supplement']) ??
           readString(map['supplement']) ??
@@ -86,13 +87,16 @@ class VitaminCatalogItem {
           readString(map['title']),
       defaultUnit:
           readString(map['defaultUnit']) ?? readString(map['default_unit']),
-      interactionText: readString(map['interactionText']) ??
+      interactionText:
+          readString(map['interactionText']) ??
           readString(map['interaction_text']) ??
           readString(map['Interactions']),
-      compatibilityText: readString(map['compatibilityText']) ??
+      compatibilityText:
+          readString(map['compatibilityText']) ??
           readString(map['compatibility_text']) ??
           readString(map['Compatibility']),
-      contraindicationsText: readString(map['contraindicationsText']) ??
+      contraindicationsText:
+          readString(map['contraindicationsText']) ??
           readString(map['contraindications_text']) ??
           readString(map['Contraindications']),
       defaultCondition: normalizeCondition(

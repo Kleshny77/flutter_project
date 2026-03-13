@@ -46,7 +46,10 @@ class UserProfile {
     };
   }
 
-  static UserProfile fromMap(Map<String, Object?> map, {Uint8List? avatarBytes}) {
+  static UserProfile fromMap(
+    Map<String, Object?> map, {
+    Uint8List? avatarBytes,
+  }) {
     return UserProfile(
       firstName: (map['firstName'] as String? ?? '').trim(),
       lastName: (map['lastName'] as String? ?? '').trim(),

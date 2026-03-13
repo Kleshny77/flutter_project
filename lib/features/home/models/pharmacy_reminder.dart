@@ -2,11 +2,7 @@ import 'vitamin_catalog_item.dart';
 import 'weekday.dart';
 
 class ReminderCourse {
-  const ReminderCourse({
-    required this.startDate,
-    this.endDate,
-    this.timezone,
-  });
+  const ReminderCourse({required this.startDate, this.endDate, this.timezone});
 
   final DateTime startDate;
   final DateTime? endDate;
@@ -14,10 +10,7 @@ class ReminderCourse {
 }
 
 class ReminderSchedule {
-  const ReminderSchedule({
-    required this.days,
-    required this.times,
-  });
+  const ReminderSchedule({required this.days, required this.times});
 
   final List<Weekday> days;
   final List<String> times;

@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../domain/repositories/auth_repository.dart';
 import '../../../core/app_design.dart';
+import '../../../core/app_dialog.dart';
 import '../../profile/data/user_profile_repository.dart';
 import '../../profile/models/user_profile.dart';
 import '../../profile/screens/edit_profile_screen.dart';
@@ -19,12 +20,15 @@ import 'pharmacy_flow_screens.dart';
 import 'schedule_tab.dart';
 import 'stats_tab.dart';
 import '../widgets/home_onboarding_overlay.dart';
+import '../widgets/home_tab_bar.dart';
+import '../widgets/home_top_header.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({
     super.key,
     required this.userId,
     required this.onSignOut,
+    required this.authRepository,
     this.userEmail,
     PharmacyRepository? pharmacyRepository,
   }) : pharmacyRepository =
@@ -33,6 +37,7 @@ class HomeScreen extends StatefulWidget {
   final String userId;
   final String? userEmail;
   final Future<void> Function() onSignOut;
+  final AuthRepository authRepository;
   final PharmacyRepository pharmacyRepository;
 
   @override
@@ -86,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Positioned.fill(
               child: Column(
                 children: [
-                  _HomeTopHeader(
+                  HomeTopHeader(
                     safeTop: safeTop,
                     onPlusTap: _showFamilyAccountDialog,
                     onProfileTap: _showProfileSheet,
@@ -131,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: _BottomNavigationHost(
+              child: HomeTabBarHost(
                 selectedTab: _selectedTab,
                 onSelect: (tab) {
                   if (_onboardingStep != null && tab != HomeTab.pharmacy) {
@@ -163,7 +168,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFamilyAccountDialog() {
-    _showInfoDialog(
+    AppDialog.showInfo(
+      context,
       title: 'Упс...',
       message: 'Функция семейного аккаунта появится позже',
     );
@@ -223,49 +229,11 @@ class _HomeScreenState extends State<HomeScreen> {
           fallbackEmail: widget.userEmail,
           onSignOut: widget.onSignOut,
           repository: _profileRepository,
+          authRepository: widget.authRepository,
         ),
       ),
     );
     await _loadProfile();
-  }
-
-  void _showInfoDialog({required String title, required String message}) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Commissioner',
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF3B3B3B),
-          ),
-        ),
-        content: Text(
-          message,
-          style: const TextStyle(
-            fontFamily: 'Commissioner',
-            fontSize: 15,
-            color: Color(0xFF656565),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text(
-              'Ок',
-              style: TextStyle(
-                fontFamily: 'Commissioner',
-                fontWeight: FontWeight.w600,
-                color: AppPalette.blueMain,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _bootstrap() async {
@@ -372,317 +340,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedTab = HomeTab.pharmacy;
       _onboardingStep = previous;
     });
-  }
-}
-
-class _BottomNavigationHost extends StatelessWidget {
-  const _BottomNavigationHost({
-    required this.selectedTab,
-    required this.onSelect,
-  });
-
-  final HomeTab selectedTab;
-  final ValueChanged<HomeTab> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final safeBottom = MediaQuery.paddingOf(context).bottom;
-
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.only(bottom: math.max(12, safeBottom)),
-      child: Center(
-        heightFactor: 1,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : MediaQuery.sizeOf(context).width;
-            return _HomeTabBar(
-              selectedTab: selectedTab,
-              maxWidth: maxWidth,
-              onSelect: onSelect,
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeTopHeader extends StatelessWidget {
-  const _HomeTopHeader({
-    required this.safeTop,
-    required this.onPlusTap,
-    required this.onProfileTap,
-    this.avatarBytes,
-  });
-
-  final double safeTop;
-  final VoidCallback onPlusTap;
-  final VoidCallback onProfileTap;
-  final Uint8List? avatarBytes;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: safeTop + 72,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7087FF).withValues(alpha: 0.2),
-            blurRadius: 18,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Align(
-        alignment: Alignment.topRight,
-        child: Padding(
-          padding: EdgeInsets.only(top: safeTop + 10, right: 20),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ProfileCircleButton(
-                onTap: onProfileTap,
-                avatarBytes: avatarBytes,
-              ),
-              const SizedBox(width: 12),
-              _SmallPlusCircleButton(onTap: onPlusTap),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileCircleButton extends StatelessWidget {
-  const _ProfileCircleButton({this.onTap, this.avatarBytes});
-
-  final VoidCallback? onTap;
-  final Uint8List? avatarBytes;
-
-  @override
-  Widget build(BuildContext context) {
-    const size = 46.0;
-    final borderRadius = BorderRadius.circular(size / 2);
-    final imageSize = math.max(0.0, size - 2);
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            colors: [
-              const Color.fromRGBO(231, 240, 255, 0.52),
-              const Color(0xFF88A4FF),
-              const Color.fromRGBO(180, 210, 255, 0.1),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7087FF).withValues(alpha: 0.25),
-              blurRadius: 30.1,
-              offset: const Offset(0, -14),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(1),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: avatarBytes == null
-              ? Image.asset(
-                  'assets/images/home/profile.png',
-                  width: imageSize,
-                  height: imageSize,
-                  fit: BoxFit.cover,
-                )
-              : Image.memory(
-                  avatarBytes!,
-                  width: imageSize,
-                  height: imageSize,
-                  fit: BoxFit.cover,
-                ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SmallPlusCircleButton extends StatelessWidget {
-  const _SmallPlusCircleButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.black.withValues(alpha: 0.08),
-            width: 1,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: SvgPicture.asset(
-          'assets/images/home/plus.svg',
-          width: 18,
-          height: 18,
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeTabBar extends StatelessWidget {
-  const _HomeTabBar({
-    required this.selectedTab,
-    required this.maxWidth,
-    required this.onSelect,
-  });
-
-  final HomeTab selectedTab;
-  final double maxWidth;
-  final ValueChanged<HomeTab> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final barWidth = math.min(363.0, math.max(280.0, maxWidth - 30));
-    final highlightWidth = barWidth >= 363
-        ? 118.0
-        : math.min(118.0, (barWidth / 3) - 4);
-
-    return Container(
-      width: barWidth,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFFD9D9D9), width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.25),
-            blurRadius: 2,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutCubic,
-              alignment: _alignmentFor(selectedTab),
-              child: Container(
-                width: highlightWidth,
-                height: 55,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(80),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color.fromRGBO(7, 115, 241, 0.33),
-                      Color.fromRGBO(31, 182, 237, 0.14),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Row(
-            children: HomeTab.values.map((tab) {
-              final isSelected = tab == selectedTab;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onSelect(tab),
-                  behavior: HitTestBehavior.opaque,
-                  child: _TabBarItem(tab: tab, isSelected: isSelected),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Alignment _alignmentFor(HomeTab tab) {
-    switch (tab) {
-      case HomeTab.schedule:
-        return Alignment.centerLeft;
-      case HomeTab.pharmacy:
-        return Alignment.center;
-      case HomeTab.stats:
-        return Alignment.centerRight;
-    }
-  }
-}
-
-class _TabBarItem extends StatelessWidget {
-  const _TabBarItem({required this.tab, required this.isSelected});
-
-  final HomeTab tab;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.max,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          height: 29,
-          child: Center(
-            child: Transform.translate(
-              offset: Offset(0, tab == HomeTab.pharmacy ? -3 : 0),
-              child: Opacity(
-                opacity: isSelected ? 1 : 0.65,
-                child: Image.asset(
-                  tab.assetPath,
-                  height: tab == HomeTab.pharmacy ? 29 : 27,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.none,
-                ),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 15,
-          child: Center(
-            child: Text(
-              tab.title,
-              style: TextStyle(
-                fontFamily: 'Commissioner',
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppPalette.blueMain.withValues(
-                  alpha: isSelected ? 1 : 0.65,
-                ),
-                height: 1,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 

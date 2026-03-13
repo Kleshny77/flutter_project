@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/app_design.dart';
+import '../../../domain/repositories/auth_repository.dart';
 import '../../../core/validation.dart';
-import '../auth_service.dart';
 import '../widgets/auth_ui.dart';
 import '../widgets/error_text_field.dart';
 
 class ForgotPasswordEmailScreen extends StatefulWidget {
   const ForgotPasswordEmailScreen({
     super.key,
-    required this.authService,
+    required this.authRepository,
     required this.onSendCode,
     required this.onBack,
     this.initialEmail,
     this.onSent,
   });
 
-  final AuthService authService;
+  final AuthRepository authRepository;
   final Future<void> Function(String email) onSendCode;
   final VoidCallback onBack;
   final String? initialEmail;
@@ -68,10 +68,12 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
         }
         return;
       }
-      GoRouter.of(context).push('/forgot-password-sent', extra: _emailController.text);
+      GoRouter.of(
+        context,
+      ).push('/forgot-password-sent', extra: _emailController.text);
     } catch (e) {
       setState(() {
-        _authError = widget.authService.mapAuthException(e);
+        _authError = widget.authRepository.mapAuthException(e);
         _loading = false;
       });
     }

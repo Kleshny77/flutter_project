@@ -35,7 +35,9 @@ class Validation {
     final hasUpper = password.contains(RegExp(r'[A-Z]'));
     final hasLower = password.contains(RegExp(r'[a-z]'));
     final hasDigit = password.contains(RegExp(r'[0-9]'));
-    final hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;/]'));
+    final hasSpecial = password.contains(
+      RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;/]'),
+    );
     return hasUpper && hasLower && hasDigit && hasSpecial;
   }
 
